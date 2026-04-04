@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/ai/client.ts","./src/audio/engine.ts","./src/audio/pitch.ts","./src/components/metronome/metronomedrawer.tsx","./src/components/tab/tabcomponent.tsx","./src/components/trainer/trainerline.tsx","./src/exercises/note-flash/noteflash.tsx","./src/exercises/note-hunt/notehunt.tsx","./src/state/metronome.ts"],"version":"5.9.3"}

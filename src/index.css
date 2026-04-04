@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Design system CSS variables ─── */
+:root {
+  --color-background-primary: #0a0a0a;
+  --color-background-secondary: #141414;
+  --color-text-primary: #f0f0f0;
+  --color-text-secondary: #a0a0a0;
+  --color-text-tertiary: #606060;
+  --color-border-secondary: rgba(240, 240, 240, 0.12);
+  --color-border-tertiary: rgba(240, 240, 240, 0.06);
+  --color-accent: #4ab8d4;
+  --font-mono: 'JetBrains Mono', 'Fira Mono', monospace;
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-background-primary: #f5f5f5;
+    --color-background-secondary: #ebebeb;
+    --color-text-primary: #111111;
+    --color-text-secondary: #555555;
+    --color-text-tertiary: #999999;
+    --color-border-secondary: rgba(0, 0, 0, 0.12);
+    --color-border-tertiary: rgba(0, 0, 0, 0.06);
+  }
+}
+
+/* ─── Base reset ─── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--color-background-primary);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
