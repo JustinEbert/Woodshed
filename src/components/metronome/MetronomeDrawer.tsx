@@ -1,8 +1,8 @@
-// Metronome drawer — Story #11
-// Slide-up drawer, v6 design ported from prototype.
-// 4 sharp-cornered cells with drum pattern bars, BPM controls.
+// Metronome drawer — Story #19
+// Minimal floating panel above bottom bar. Always in DOM, animated with translateY.
+// Drag handle always visible. Tighter spacing, design-system-consistent.
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMetronome, MIN_BPM, MAX_BPM } from '../../state/metronome'
 
 // ─── Drum pattern (same as audio engine) ─────────────────────────────────────
@@ -40,12 +40,10 @@ function BeatCell({ beatIndex, active }: { beatIndex: number; active: boolean })
     if (!el) return
 
     if (active) {
-      // Instant attack
       el.style.transition = 'background 0ms, border-color 0ms'
       el.style.background = 'color-mix(in srgb, var(--color-text-secondary) 15%, transparent)'
       el.style.borderColor = 'var(--color-text-primary)'
     } else {
-      // 120ms fade release
       el.style.transition = 'background 120ms ease, border-color 120ms ease'
       el.style.background = 'transparent'
       el.style.borderColor = 'var(--color-border-secondary)'
@@ -107,38 +105,67 @@ function BeatCell({ beatIndex, active }: { beatIndex: number; active: boolean })
   )
 }
 
-// ─── Drawer ──────────────────────────────────────────────────────────────────
+// ─── Drag handle (always visible) ───────────────────────────────────────────
+
+interface DragHandleProps {
+  onClick: () => void
+}
+
+export function MetronomeDragHandle({ onClick }: DragHandleProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: '100%',
+        height: 16,
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        padding: 0,
+      }}
+      aria-label="Toggle metronome drawer"
+    >
+      <div
+        style={{
+          width: 32,
+          height: 3,
+          borderRadius: 2,
+          background: 'var(--color-border-secondary)',
+        }}
+      />
+    </button>
+  )
+}
+
+// ─── Drawer panel ───────────────────────────────────────────────────────────
 
 interface MetronomeDrawerProps {
   open: boolean
-  onClose: () => void
 }
 
-export default function MetronomeDrawer({ open, onClose }: MetronomeDrawerProps) {
+export default function MetronomeDrawer({ open }: MetronomeDrawerProps) {
   const { bpm, beat, running, setBpm, toggle } = useMetronome()
+  const [hasAnimated, setHasAnimated] = useState(false)
 
-  if (!open) return null
+  // Enable animation after first render to prevent flash on mount
+  useEffect(() => {
+    requestAnimationFrame(() => setHasAnimated(true))
+  }, [])
 
   return (
-    <>
-      {/* Backdrop — tap to dismiss */}
-      <div
-        onClick={onClose}
-        style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 40,
-        }}
-      />
-
-      {/* Drawer panel */}
+    <div
+      style={{
+        overflow: 'hidden',
+        transition: hasAnimated ? (open ? 'max-height 200ms ease-out' : 'max-height 150ms ease-in') : 'none',
+        maxHeight: open ? 100 : 0,
+      }}
+    >
       <div
         style={{
-          position: 'fixed',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          zIndex: 50,
           background: 'var(--color-background-primary)',
           borderTop: '0.5px solid var(--color-border-secondary)',
         }}
@@ -147,29 +174,9 @@ export default function MetronomeDrawer({ open, onClose }: MetronomeDrawerProps)
           style={{
             maxWidth: 600,
             margin: '0 auto',
-            padding: '12px 16px 24px',
+            padding: '8px 16px 8px',
           }}
         >
-          {/* Drag handle */}
-          <div
-            onClick={onClose}
-            style={{
-              display: 'flex',
-              justifyContent: 'center',
-              padding: '4px 0 12px',
-              cursor: 'pointer',
-            }}
-          >
-            <div
-              style={{
-                width: 32,
-                height: 3,
-                borderRadius: 2,
-                background: 'var(--color-border-secondary)',
-              }}
-            />
-          </div>
-
           {/* Beat grid — 4 cells */}
           <div
             style={{
@@ -183,112 +190,106 @@ export default function MetronomeDrawer({ open, onClose }: MetronomeDrawerProps)
             ))}
           </div>
 
-          {/* BPM display + play/stop */}
+          {/* BPM controls — single row: −5 −1 [number BPM] +1 +5 */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              gap: 16,
-              marginTop: 16,
-            }}
-          >
-            <button
-              onClick={toggle}
-              style={{
-                background: running ? 'var(--color-accent)' : 'var(--color-background-secondary)',
-                border: '0.5px solid var(--color-border-secondary)',
-                borderRadius: 0,
-                color: running ? 'var(--color-background-primary)' : 'var(--color-text-primary)',
-                padding: '6px 16px',
-                fontSize: 13,
-                fontFamily: 'var(--font-sans)',
-                fontWeight: 500,
-                cursor: 'pointer',
-                minHeight: 36,
-              }}
-            >
-              {running ? 'Stop' : 'Play'}
-            </button>
-
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: 20,
-                color: 'var(--color-text-primary)',
-                minWidth: 60,
-                textAlign: 'center',
-              }}
-            >
-              {bpm}
-            </span>
-
-            <span
-              style={{
-                fontSize: 11,
-                color: 'var(--color-text-tertiary)',
-                letterSpacing: '0.05em',
-                textTransform: 'uppercase',
-              }}
-            >
-              BPM
-            </span>
-          </div>
-
-          {/* BPM slider */}
-          <div style={{ marginTop: 12 }}>
-            <input
-              type="range"
-              min={MIN_BPM}
-              max={MAX_BPM}
-              value={bpm}
-              onChange={e => setBpm(Number(e.target.value))}
-              style={{
-                width: '100%',
-                accentColor: 'var(--color-accent)',
-                cursor: 'pointer',
-              }}
-            />
-          </div>
-
-          {/* ±1 / ±5 buttons */}
-          <div
-            style={{
-              display: 'flex',
-              gap: 8,
               marginTop: 12,
-              justifyContent: 'center',
             }}
           >
-            {[
-              { label: '−5', delta: -5 },
-              { label: '−1', delta: -1 },
-              { label: '+1', delta: 1 },
-              { label: '+5', delta: 5 },
-            ].map(({ label, delta }) => (
-              <button
-                key={label}
-                onClick={() => setBpm(bpm + delta)}
+            {/* Left-justified decrease buttons */}
+            <div style={{ display: 'flex', gap: 4 }}>
+              {[
+                { label: '−5', delta: -5 },
+                { label: '−1', delta: -1 },
+              ].map(({ label, delta }) => (
+                <button
+                  key={label}
+                  onClick={() => setBpm(bpm + delta)}
+                  style={{
+                    padding: '2px 8px',
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: 11,
+                    fontWeight: 400,
+                    borderRadius: 0,
+                    border: '0.5px solid var(--color-border-secondary)',
+                    background: 'var(--color-background-secondary)',
+                    color: 'var(--color-text-secondary)',
+                    cursor: 'pointer',
+                    lineHeight: 1,
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Centered BPM display */}
+            <div
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'baseline',
+                justifyContent: 'center',
+                gap: 4,
+              }}
+            >
+              <span
                 style={{
-                  flex: 1,
-                  maxWidth: 64,
-                  padding: '8px 0',
-                  fontSize: 13,
-                  fontFamily: 'var(--font-mono)',
-                  borderRadius: 0,
-                  border: '0.5px solid var(--color-border-secondary)',
-                  background: 'var(--color-background-secondary)',
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 14,
+                  fontWeight: 500,
                   color: 'var(--color-text-primary)',
-                  cursor: 'pointer',
-                  minHeight: 36,
+                  minWidth: 28,
+                  textAlign: 'center',
                 }}
               >
-                {label}
-              </button>
-            ))}
+                {bpm}
+              </span>
+              <span
+                style={{
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 11,
+                  fontWeight: 400,
+                  color: 'var(--color-text-tertiary)',
+                  letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                BPM
+              </span>
+            </div>
+
+            {/* Right-justified increase buttons */}
+            <div style={{ display: 'flex', gap: 4 }}>
+              {[
+                { label: '+1', delta: 1 },
+                { label: '+5', delta: 5 },
+              ].map(({ label, delta }) => (
+                <button
+                  key={label}
+                  onClick={() => setBpm(bpm + delta)}
+                  style={{
+                    padding: '2px 8px',
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: 11,
+                    fontWeight: 400,
+                    borderRadius: 0,
+                    border: '0.5px solid var(--color-border-secondary)',
+                    background: 'var(--color-background-secondary)',
+                    color: 'var(--color-text-secondary)',
+                    cursor: 'pointer',
+                    lineHeight: 1,
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
-    </>
+    </div>
   )
 }
