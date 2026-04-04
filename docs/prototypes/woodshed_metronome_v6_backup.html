@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Woodshed Metronome v6 — Backup</title>
+<style>
+  :root {
+    --color-background-primary: #ffffff;
+    --color-background-secondary: #f4f4f2;
+    --color-text-primary: #1a1a1a;
+    --color-text-secondary: #555550;
+    --color-text-tertiary: #99998f;
+    --color-border-primary: rgba(0,0,0,0.4);
+    --color-border-secondary: rgba(0,0,0,0.3);
+    --color-border-tertiary: rgba(0,0,0,0.15);
+    --font-mono: 'Courier New', Courier, monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --border-radius-md: 8px;
+    --border-radius-lg: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-background-primary: #1a1a1a;
+      --color-background-secondary: #252525;
+      --color-text-primary: #f0f0ec;
+      --color-text-secondary: #aaaaaa;
+      --color-text-tertiary: #666660;
+      --color-border-primary: rgba(255,255,255,0.4);
+      --color-border-secondary: rgba(255,255,255,0.3);
+      --color-border-tertiary: rgba(255,255,255,0.15);
+    }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--color-background-primary);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    padding: 2rem;
+  }
+
+  .container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: 560px;
+    margin: 0 auto;
+  }
+
+  .label {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  /* ── METRONOME ── */
+  .beat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+  }
+  .beat-cell {
+    height: 24px;
+    border-radius: 0;
+    border: 1.5px solid var(--color-border-secondary);
+    background: transparent;
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    transition: border-color 120ms ease;
+  }
+  .beat-cell.active {
+    background: color-mix(in srgb, var(--color-text-secondary) 15%, transparent);
+    border-color: var(--color-text-primary);
+    transition: background 0ms, border-color 0ms;
+  }
+  .subdiv-line {
+    position: absolute; top: 0; bottom: 0; width: 1px;
+    background: var(--color-border-tertiary); pointer-events: none;
+  }
+  .mslot { position: relative; height: 100%; }
+  .bar { position: absolute; bottom: 0; left: 1px; right: 1px; background: #4ab8d4; }
+  .bar-kick  { height: 100%; }
+  .bar-snare { height: 50%; }
+  .bar-hat   { height: 25%; }
+
+  /* ── TAB STAFF ── */
+  .tab-staff {
+    position: relative;
+    height: calc(5 * 14px + 16px);
+  }
+  .tab-string {
+    position: absolute;
+    left: 0; right: 0;
+    height: 1px;
+    background: var(--color-border-secondary);
+  }
+  .tab-string.low-e {
+    height: 2px;
+    background: var(--color-text-secondary);
+  }
+  .fret-num {
+    position: absolute;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--color-text-secondary);
+    background: var(--color-background-primary);
+    line-height: 1;
+    z-index: 2;
+    padding: 2px 3px;
+    transform: translateY(-50%);
+    border: 1.5px solid transparent;
+    transition: background 120ms ease, border-color 120ms ease;
+  }
+  .fret-num.active {
+    background: color-mix(in srgb, var(--color-text-secondary) 15%, transparent);
+    border-color: var(--color-text-primary);
+    transition: background 0ms, border-color 0ms;
+  }
+
+  /* ── CONTROLS ── */
+  .btn-row { display: flex; gap: 10px; }
+  .btn {
+    flex: 1; padding: 10px; font-size: 14px;
+    font-family: var(--font-sans);
+    border-radius: var(--border-radius-md);
+    border: 0.5px solid var(--color-border-secondary);
+    background: var(--color-background-secondary);
+    color: var(--color-text-primary); cursor: pointer;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn.primary {
+    background: var(--color-text-primary);
+    color: var(--color-background-primary);
+    border-color: transparent;
+  }
+
+  .version-tag {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    text-align: right;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="label">Woodshed — Metronome + Tab v6</div>
+
+  <div class="beat-grid" id="metrGrid"></div>
+  <div class="tab-staff" id="tabStaff"></div>
+
+  <div class="btn-row">
+    <button class="btn primary" onclick="togglePlay()" id="playBtn">Play</button>
+    <button class="btn" onclick="advance()">Next →</button>
+  </div>
+
+  <div class="version-tag">v6 backup · quarter-beat highlight · tight fret frame · low E bold</div>
+</div>
+
+<script>
+// ── SEQUENCE ──
+// 16 notes, low E string only. [e, B, G, D, A, E_low]
+const sequence = [
+  [null,null,null,null,null,0],
+  [null,null,null,null,null,2],
+  [null,null,null,null,null,3],
+  [null,null,null,null,null,2],
+  [null,null,null,null,null,0],
+  [null,null,null,null,null,3],
+  [null,null,null,null,null,5],
+  [null,null,null,null,null,3],
+  [null,null,null,null,null,2],
+  [null,null,null,null,null,0],
+  [null,null,null,null,null,2],
+  [null,null,null,null,null,3],
+  [null,null,null,null,null,5],
+  [null,null,null,null,null,3],
+  [null,null,null,null,null,2],
+  [null,null,null,null,null,0],
+];
+
+const STRING_COUNT   = 6;
+const STRING_SPACING = 14;
+const STRING_PAD_TOP = 8;
+
+let lineStart = 0;
+let cursor    = 0;
+
+function noteAt(i) { return sequence[i % sequence.length]; }
+
+function buildTabStaff() {
+  const staff = document.getElementById('tabStaff');
+  staff.innerHTML = '';
+
+  const staffWidth = staff.offsetWidth;
+  const gap  = 4;
+  const colW = (staffWidth - 3 * gap) / 4;
+
+  // 6 continuous string lines
+  for (let si = 0; si < STRING_COUNT; si++) {
+    const top  = STRING_PAD_TOP + si * STRING_SPACING;
+    const line = document.createElement('div');
+    line.className = 'tab-string' + (si === 5 ? ' low-e' : '');
+    line.style.top = top + 'px';
+    staff.appendChild(line);
+  }
+
+  // Fret numbers
+  for (let beat = 0; beat < 4; beat++) {
+    const x    = beat * (colW + gap);
+    const note = noteAt(lineStart + beat);
+    const isActive = beat === cursor;
+
+    note.forEach((val, si) => {
+      if (val === null) return;
+      const top  = STRING_PAD_TOP + si * STRING_SPACING;
+      const span = document.createElement('span');
+      span.className = 'fret-num' + (isActive ? ' active' : '');
+      span.dataset.beat = beat;
+      span.style.left = x + 'px';
+      span.style.top  = top + 'px';
+      span.textContent = val;
+      staff.appendChild(span);
+    });
+  }
+}
+
+function updateHighlight() {
+  document.querySelectorAll('.fret-num').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.beat) === cursor);
+  });
+}
+
+function advance() {
+  if (cursor < 3) {
+    cursor++;
+    updateHighlight();
+  } else {
+    lineStart = (lineStart + 4) % sequence.length;
+    cursor    = 0;
+    buildTabStaff();
+  }
+}
+
+// ── METRONOME DRUM PATTERN ──
+const KICK  = new Set([0,8,10]);
+const SNARE = new Set([4,12]);
+const HAT   = new Set([0,2,4,6,8,10,12,14]);
+
+function opacityFor(s) {
+  let v = 0;
+  if (KICK.has(s))  v += 0.80;
+  if (SNARE.has(s)) v += 0.50;
+  if (HAT.has(s))   v += 0.25;
+  return Math.min(1, v);
+}
+function barClassFor(s) {
+  if (KICK.has(s))  return 'bar bar-kick';
+  if (SNARE.has(s)) return 'bar bar-snare';
+  if (HAT.has(s))   return 'bar bar-hat';
+  return null;
+}
+
+const mg = document.getElementById('metrGrid');
+for (let beat = 0; beat < 4; beat++) {
+  const cell = document.createElement('div');
+  cell.className = 'beat-cell';
+  cell.id = 'beat-' + beat;
+  [25,50,75].forEach(p => {
+    const l = document.createElement('div');
+    l.className = 'subdiv-line';
+    l.style.left = p + '%';
+    cell.appendChild(l);
+  });
+  for (let s = 0; s < 4; s++) {
+    const step = beat * 4 + s;
+    const slot = document.createElement('div');
+    slot.className = 'mslot';
+    const bc = barClassFor(step);
+    if (bc) {
+      const bar = document.createElement('div');
+      bar.className = bc;
+      bar.style.opacity = opacityFor(step);
+      slot.appendChild(bar);
+    }
+    cell.appendChild(slot);
+  }
+  mg.appendChild(cell);
+}
+
+// ── AUDIO ENGINE ──
+let audioCtx=null, isPlaying=false, nextNoteTime=0, sixteenthCount=0, schedulerTimer=null, bpm=90;
+
+function getCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function playKick(ctx,t){const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.setValueAtTime(150,t);o.frequency.exponentialRampToValueAtTime(40,t+0.08);g.gain.setValueAtTime(0.7,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.12);o.start(t);o.stop(t+0.15);}
+function playSnare(ctx,t){const buf=ctx.createBuffer(1,ctx.sampleRate*0.15,ctx.sampleRate),d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;const src=ctx.createBufferSource(),f=ctx.createBiquadFilter(),g=ctx.createGain();src.buffer=buf;f.type='bandpass';f.frequency.value=1500;src.connect(f);f.connect(g);g.connect(ctx.destination);g.gain.setValueAtTime(0.5,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.12);src.start(t);src.stop(t+0.15);}
+function playHat(ctx,t){const buf=ctx.createBuffer(1,ctx.sampleRate*0.04,ctx.sampleRate),d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;const src=ctx.createBufferSource(),f=ctx.createBiquadFilter(),g=ctx.createGain();src.buffer=buf;f.type='highpass';f.frequency.value=9000;src.connect(f);f.connect(g);g.connect(ctx.destination);g.gain.setValueAtTime(0.18,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.03);src.start(t);src.stop(t+0.04);}
+
+function scheduler() {
+  const ctx = getCtx(), sixDur = (60/bpm)/4;
+  while (nextNoteTime < ctx.currentTime + 0.1) {
+    const step = sixteenthCount % 16, beat = Math.floor(step/4), t = nextNoteTime;
+    if (KICK.has(step))  playKick(ctx, t);
+    if (SNARE.has(step)) playSnare(ctx, t);
+    if (HAT.has(step))   playHat(ctx, t);
+    if (step % 4 === 0) {
+      (function(b, sT) {
+        setTimeout(() => {
+          if (!isPlaying) return;
+          document.querySelectorAll('.beat-cell').forEach((c,i) => c.classList.toggle('active', i===b));
+        }, Math.max(0, (sT - ctx.currentTime)*1000));
+      })(beat, t);
+    }
+    nextNoteTime += sixDur;
+    sixteenthCount++;
+  }
+  schedulerTimer = setTimeout(scheduler, 25);
+}
+
+function togglePlay() {
+  if (isPlaying) {
+    isPlaying = false;
+    clearTimeout(schedulerTimer);
+    document.querySelectorAll('.beat-cell').forEach(c => c.classList.remove('active'));
+    document.getElementById('playBtn').textContent = 'Play';
+  } else {
+    const ctx = getCtx();
+    isPlaying = true;
+    sixteenthCount = 0;
+    nextNoteTime = ctx.currentTime + 0.05;
+    scheduler();
+    document.getElementById('playBtn').textContent = 'Stop';
+  }
+}
+
+setTimeout(buildTabStaff, 50);
+</script>
+</body>
+</html>
