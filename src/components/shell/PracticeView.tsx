@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react'
 import TopBar from './TopBar'
+import BeatPulse from './BeatPulse'
 import BottomBar from './BottomBar'
 import ExerciseView from './ExerciseView'
 
@@ -28,7 +29,7 @@ export default function PracticeView({
   return (
     <div className="h-full w-full flex justify-center">
       <div className="h-full w-full max-w-[600px] flex flex-col">
-        <TopBar />
+        <TopBar pulse={<BeatPulse />} />
         <ExerciseView>{exercise}</ExerciseView>
         <BottomBar
           exerciseName={exerciseName}
