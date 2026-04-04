@@ -174,6 +174,27 @@ bar heights: kick 100%, snare 50%, hat 25% — additive teal opacity
 
 ---
 
+## development process
+
+**one story at a time.**
+stories are implemented individually, one per commit cycle. no simultaneous
+multi-story work unless specifically agreed upon.
+
+- each story must be completable on its own (dependencies are fine,
+  simultaneous implementation of unrelated stories is not)
+- before starting a story: state the issue number, title, and acceptance
+  criteria. confirm what will be built, nothing more
+- if a story cannot be implemented without also implementing another story,
+  call it out before starting — propose either:
+  (a) a dependency ordering, or
+  (b) a revision to the story so it can stand alone
+- commit message references the single issue being closed (e.g. `Closes #2`)
+- stubs and placeholders from other stories are acceptable only as inert
+  scaffolding (e.g. an empty slot, a disabled button) — they do not count
+  as implementing those stories
+
+---
+
 ## github issues — epics
 
 see GitHub Projects for full issue list.
