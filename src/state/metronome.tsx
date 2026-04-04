@@ -1,7 +1,6 @@
-// Global metronome state — Story #10
+// Global metronome state — Stories #10 + #9
 // React context providing BPM, running/stopped, current beat (0-3).
-// Uses a simple setTimeout clock for beat emission.
-// Story #9 (audio engine) will replace the clock with Web Audio scheduler.
+// Audio engine (Web Audio API) drives both sound and beat emission.
 
 import {
   createContext,
@@ -12,6 +11,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { createAudioEngine, type AudioEngine } from '../audio/engine'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -80,71 +80,68 @@ export function MetronomeProvider({ children }: MetronomeProviderProps) {
   const [running, setRunning] = useState(false)
   const [beat, setBeat] = useState(0)
 
-  // Refs for the clock loop to read latest values without re-subscribing
+  // Ref for the audio engine — created once, persists across renders
+  const engineRef = useRef<AudioEngine | null>(null)
   const bpmRef = useRef(bpm)
-  const runningRef = useRef(running)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Keep refs in sync
+  // Keep BPM ref in sync + forward to engine
   bpmRef.current = bpm
-  runningRef.current = running
+  if (engineRef.current) {
+    engineRef.current.setBpm(bpm)
+  }
+
+  // Lazily create the engine (once). The onQuarterBeat callback
+  // updates React state so all subscribers re-render.
+  function getEngine(): AudioEngine {
+    if (!engineRef.current) {
+      engineRef.current = createAudioEngine((quarterBeat: number) => {
+        setBeat(quarterBeat)
+      })
+    }
+    return engineRef.current
+  }
 
   // ── BPM setter (clamped) ───────────────────────────────────────────────
 
   const setBpm = useCallback((next: number) => {
     const clamped = Math.max(MIN_BPM, Math.min(MAX_BPM, Math.round(next)))
     setBpmRaw(clamped)
-    // BPM change takes effect on the next beat — no jarring restart
   }, [])
 
-  // ── Clock: simple setTimeout loop ──────────────────────────────────────
-  // Fires on each quarter note. Story #9 replaces this with Web Audio
-  // scheduler for sample-accurate timing. This is sufficient for visual
-  // sync and state emission.
+  // ── Start / stop: delegate to audio engine ─────────────────────────────
 
-  useEffect(() => {
-    if (!running) {
-      // Stopped — clear any pending timer, reset beat to 0
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current)
-        timerRef.current = null
-      }
-      setBeat(0)
-      return
+  const start = useCallback(() => {
+    const engine = getEngine()
+    engine.start(bpmRef.current)
+    setRunning(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const stop = useCallback(() => {
+    if (engineRef.current) {
+      engineRef.current.stop()
     }
-
-    // Running — start the beat loop
-    let currentBeat = 0
+    setRunning(false)
     setBeat(0)
+  }, [])
 
-    function tick() {
-      // Advance beat
-      currentBeat = (currentBeat + 1) % 4
-      setBeat(currentBeat)
-
-      // Schedule next tick at current BPM (reads ref so BPM changes
-      // take effect within current bar without restart)
-      const msPerBeat = 60_000 / bpmRef.current
-      timerRef.current = setTimeout(tick, msPerBeat)
+  const toggle = useCallback(() => {
+    if (engineRef.current?.isRunning()) {
+      stop()
+    } else {
+      start()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [start, stop])
 
-    // First beat is immediate (beat 0 set above), schedule beat 1
-    const msPerBeat = 60_000 / bpmRef.current
-    timerRef.current = setTimeout(tick, msPerBeat)
-
+  // Clean up on unmount
+  useEffect(() => {
     return () => {
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current)
-        timerRef.current = null
+      if (engineRef.current) {
+        engineRef.current.stop()
       }
     }
-  }, [running])
-
-  // ── Actions ────────────────────────────────────────────────────────────
-
-  const start = useCallback(() => setRunning(true), [])
-  const stop = useCallback(() => setRunning(false), [])
-  const toggle = useCallback(() => setRunning(r => !r), [])
+  }, [])
 
   // ── Context value ──────────────────────────────────────────────────────
 
