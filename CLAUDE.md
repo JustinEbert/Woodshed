@@ -9,7 +9,9 @@ it is the product. Built with deliberate practice science as the foundation.
 
 Full spec: `docs/woodshed_spec_v0.2.md`
 Full wireframe: `docs/woodshed_wireframe_v0.2.md`
-Design prototype: `docs/prototypes/woodshed_metronome_v6_backup.html`
+Design prototypes:
+  `docs/prototypes/woodshed_metronome_v6_backup.html`  ← metronome + tab (Story #11, #13)
+  `docs/prototypes/woodshed_tab_v6.html`               ← tab component standalone (Story #13)
 
 ---
 
