@@ -124,6 +124,21 @@ after implementing a story, before committing:
 5. commit only after confirmation.
 6. do not start the next story until the current one is committed.
 
+### testing
+
+- **pure logic modules** (tuning, audio, AI client, data transforms):
+  always write tests. use TDD when practical — tests first, then
+  implementation.
+- **React components**: not required to have unit tests currently.
+  revisit when component testing infrastructure is added.
+- test files live next to the module: `foo.ts` → `foo.test.ts`.
+- stories with testable logic should include test acceptance criteria
+  (what to test, not how to test).
+- `npm test` must pass before committing. if tests fail, fix them
+  before proceeding.
+- test runner: Vitest (`npm test` for single run, `npm run test:watch`
+  for development).
+
 ### design quality gate
 
 - stories with UI output require a visual spec (prototype or written spec)
