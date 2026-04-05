@@ -12,6 +12,7 @@ Full wireframe: `docs/woodshed_wireframe_v0.2.md`
 Design prototypes:
   `docs/prototypes/woodshed_metronome_v6_backup.html`  ← metronome + tab (Story #11, #13)
   `docs/prototypes/woodshed_tab_v6.html`               ← tab component standalone (Story #13)
+  `docs/prototypes/woodshed_flashcard_proto_v1.html`   ← flash card component (Story #20)
 
 ---
 
@@ -284,6 +285,46 @@ slide-up drawers (metronome, exercise select):
 - border-radius: 2px on drag handle only
 - rounded-full on beat pulse dot only
 - no other border-radius values
+
+---
+
+## flash card component — prototype built, needs React implementation
+
+a working vanilla JS/HTML prototype exists in:
+`docs/prototypes/woodshed_flashcard_proto_v1.html`
+
+the flash card is a minimal, glanceable card presenting a single note challenge.
+used as the primary UI for the Note Flash exercise (v1 and v2).
+it is NOT the scrolling tab component — they are siblings, not parent/child.
+
+display modes:
+- **fret → name**: shows fret number, player must play/name the note
+- **name → fret**: shows note name, player must find the fret position
+
+visual layout:
+- centered unit: string strip (48px wide, 6 strings, 14px spacing) + large number/letter (76px)
+- card: 120px height, border, no background fill
+- active string highlighted teal, low E always 2.5px weight
+- correct animation: scale 110% + teal flash, 200ms (number element only)
+- wrong animation: shakeX + dim, 280ms (number element only, card stays)
+- flexbox centering only — no position:absolute centering (causes jump artifact)
+
+React component interface:
+```tsx
+<FlashCard
+  value="5"           // fret number or note name
+  stringIndex={5}     // 0=high e, 5=low E
+  displayMode="fret"  // "fret" | "name"
+  onCorrect={fn}      // called after correct animation completes
+  onWrong={fn}        // called after wrong animation completes
+/>
+```
+
+architecture:
+```
+practice view → exercise view slot → Note Flash exercise → Flash Card Component
+```
+the app shell knows nothing about the Flash Card Component directly.
 
 ---
 
