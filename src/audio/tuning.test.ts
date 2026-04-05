@@ -4,6 +4,7 @@ import {
   getFretForNote,
   getFrequency,
   getNotesForString,
+  frequencyToNote,
 } from './tuning'
 
 // ─── Standard tuning open strings ────────────────────────────────────────────
@@ -138,5 +139,83 @@ describe('getNotesForString', () => {
     const notes = getNotesForString(5) // low E
     expect(notes[24].name).toBe('E') // same note name, two octaves up
     expect(notes[24].frequency).toBeCloseTo(notes[0].frequency * 4, 1) // 2^2 = 4x
+  })
+})
+
+// ─── frequencyToNote ─────────────────────────────────────────────────────────
+
+describe('frequencyToNote', () => {
+  it('maps 440 Hz to A4 with 0 cents', () => {
+    const result = frequencyToNote(440)
+    expect(result).not.toBeNull()
+    expect(result!.name).toBe('A')
+    expect(result!.octave).toBe(4)
+    expect(result!.cents).toBeCloseTo(0, 0)
+  })
+
+  it('maps 82.41 Hz to E2 (low E open)', () => {
+    const result = frequencyToNote(82.41)
+    expect(result).not.toBeNull()
+    expect(result!.name).toBe('E')
+    expect(result!.octave).toBe(2)
+    expect(Math.abs(result!.cents)).toBeLessThan(2)
+  })
+
+  it('maps 110 Hz to A2 (A string open)', () => {
+    const result = frequencyToNote(110)
+    expect(result).not.toBeNull()
+    expect(result!.name).toBe('A')
+    expect(result!.octave).toBe(2)
+    expect(result!.cents).toBeCloseTo(0, 0)
+  })
+
+  it('maps 329.63 Hz to E4 (high e open)', () => {
+    const result = frequencyToNote(329.63)
+    expect(result).not.toBeNull()
+    expect(result!.name).toBe('E')
+    expect(result!.octave).toBe(4)
+    expect(Math.abs(result!.cents)).toBeLessThan(2)
+  })
+
+  it('returns null for frequency < 20 Hz', () => {
+    expect(frequencyToNote(19)).toBeNull()
+    expect(frequencyToNote(0)).toBeNull()
+    expect(frequencyToNote(-10)).toBeNull()
+  })
+
+  it('returns null for frequency > 5000 Hz', () => {
+    expect(frequencyToNote(5001)).toBeNull()
+    expect(frequencyToNote(10000)).toBeNull()
+  })
+
+  it('returns positive cents for sharp pitch', () => {
+    // 446.16 Hz is ~24 cents sharp of A4
+    const result = frequencyToNote(446.16)
+    expect(result).not.toBeNull()
+    expect(result!.name).toBe('A')
+    expect(result!.octave).toBe(4)
+    expect(result!.cents).toBeGreaterThan(0)
+    expect(result!.cents).toBeCloseTo(24, 0)
+  })
+
+  it('returns negative cents for flat pitch', () => {
+    // 435 Hz is ~-20 cents from A4
+    const result = frequencyToNote(435)
+    expect(result).not.toBeNull()
+    expect(result!.name).toBe('A')
+    expect(result!.octave).toBe(4)
+    expect(result!.cents).toBeLessThan(0)
+    expect(result!.cents).toBeCloseTo(-20, 0)
+  })
+
+  it('cents never exceed ±50', () => {
+    // Test a sweep of frequencies
+    const testFreqs = [82.41, 100, 110, 200, 329.63, 400, 440, 500, 880, 1000]
+    for (const freq of testFreqs) {
+      const result = frequencyToNote(freq)
+      expect(result, `expected result for ${freq} Hz`).not.toBeNull()
+      expect(result!.cents).toBeGreaterThanOrEqual(-50)
+      expect(result!.cents).toBeLessThanOrEqual(50)
+    }
   })
 })

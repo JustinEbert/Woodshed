@@ -19,6 +19,17 @@ export interface NoteInfo {
   frequency: number
 }
 
+export interface DetectedNote {
+  /** Note name: "E", "F#", etc. (sharps only) */
+  name: string
+  /** MIDI octave: E2 = octave 2, A4 = octave 4 */
+  octave: number
+  /** MIDI note number */
+  midi: number
+  /** Deviation from perfect pitch: -50 to +50 cents */
+  cents: number
+}
+
 // ─── Core functions ──────────────────────────────────────────────────────────
 
 /**
@@ -68,4 +79,22 @@ export function getNotesForString(stringIndex: number, maxFret: number = 24): No
     })
   }
   return notes
+}
+
+/**
+ * Map a frequency to the nearest note name, octave, MIDI number, and cents deviation.
+ * Returns null if frequency is outside useful range (< 20 Hz or > 5000 Hz).
+ */
+export function frequencyToNote(frequency: number): DetectedNote | null {
+  if (frequency < 20 || frequency > 5000) return null
+
+  // MIDI note number (fractional) from frequency
+  const midiFloat = 69 + 12 * Math.log2(frequency / 440)
+  const midi = Math.round(midiFloat)
+  const cents = (midiFloat - midi) * 100
+
+  const name = NOTE_NAMES[((midi % 12) + 12) % 12]
+  const octave = Math.floor(midi / 12) - 1
+
+  return { name, octave, midi, cents }
 }
