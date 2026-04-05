@@ -50,15 +50,11 @@ function StringStrip({ stringIndex }: { stringIndex: number }) {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type DisplayMode = 'fret' | 'name'
-
 export interface FlashCardProps {
-  /** Fret number (as string, e.g. "5") or note name (e.g. "F#") */
+  /** Display text: fret number ("3") or note name ("G") */
   value: string
   /** String index: 0 = high e, 5 = low E */
   stringIndex: number
-  /** Whether to display fret numbers or note names */
-  displayMode: DisplayMode
   /** Called after correct animation completes — parent advances to next note */
   onCorrect?: () => void
   /** Called after wrong animation completes — parent stays on same note */
