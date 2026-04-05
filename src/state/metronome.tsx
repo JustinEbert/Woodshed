@@ -21,6 +21,11 @@ export const MAX_BPM = 200
 
 const SETTINGS_KEY = 'woodshed:settings'
 
+/** Clamp and round a BPM value to valid range. Pure function. */
+export function clampBpm(bpm: number): number {
+  return Math.max(MIN_BPM, Math.min(MAX_BPM, Math.round(bpm)))
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface MetronomeState {
@@ -41,7 +46,7 @@ type MetronomeContextValue = MetronomeState & MetronomeActions
 
 // ─── Local settings persistence ──────────────────────────────────────────────
 
-function loadDefaultBpm(): number {
+export function loadDefaultBpm(): number {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
     if (raw) {
@@ -104,7 +109,7 @@ export function MetronomeProvider({ children }: MetronomeProviderProps) {
   // ── BPM setter (clamped) ───────────────────────────────────────────────
 
   const setBpm = useCallback((next: number) => {
-    const clamped = Math.max(MIN_BPM, Math.min(MAX_BPM, Math.round(next)))
+    const clamped = clampBpm(next)
     setBpmRaw(clamped)
   }, [])
 

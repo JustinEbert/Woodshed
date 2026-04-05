@@ -8,9 +8,16 @@
 // ─── Drum pattern ────────────────────────────────────────────────────────────
 
 // 16 sixteenth-note steps per bar (0-15)
-const KICK = new Set([0, 8, 10])   // beat 1, beat 3, beat 3&
-const SNARE = new Set([4, 12])      // beat 2, beat 4
-const HAT = new Set([0, 2, 4, 6, 8, 10, 12, 14]) // all 8ths
+export const KICK = new Set([0, 8, 10])   // beat 1, beat 3, beat 3&
+export const SNARE = new Set([4, 12])      // beat 2, beat 4
+export const HAT = new Set([0, 2, 4, 6, 8, 10, 12, 14]) // all 8ths
+
+// ─── Timing ─────────────────────────────────────────────────────────────────
+
+/** Duration of one sixteenth note in seconds at the given BPM. */
+export function sixteenthNoteDuration(bpm: number): number {
+  return (60 / bpm) / 4
+}
 
 // ─── Synthesis ───────────────────────────────────────────────────────────────
 // Parameters matched exactly to prototype:
@@ -110,7 +117,7 @@ export function createAudioEngine(onQuarterBeat: QuarterBeatCallback): AudioEngi
 
   function scheduler() {
     const ctx = getCtx()
-    const sixteenthDuration = (60 / currentBpm) / 4
+    const sixteenthDuration = sixteenthNoteDuration(currentBpm)
 
     // Schedule all notes within the lookahead window (100ms)
     while (nextNoteTime < ctx.currentTime + 0.1) {
