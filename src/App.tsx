@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import PracticeView from './components/shell/PracticeView'
 import SettingsScreen from './components/shell/SettingsScreen'
-import NoteFlash from './exercises/note-flash/NoteFlash'
 
 type AppView = 'practice' | 'settings'
 
 export default function App() {
   const [view, setView] = useState<AppView>('practice')
+  const [exerciseName] = useState<string | null>(null)
 
   if (view === 'settings') {
     return <SettingsScreen onBack={() => setView('practice')} />
@@ -14,8 +14,7 @@ export default function App() {
 
   return (
     <PracticeView
-      exercise={<NoteFlash />}
-      exerciseName="Note Flash"
+      exerciseName={exerciseName}
       onExerciseTap={() => {
         /* exercise select sheet — Story #6 */
       }}
