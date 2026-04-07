@@ -11,16 +11,18 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { detectPitch } from './pitch-detection'
+import {
+  processFrame,
+  createPipelineState,
+  NOISE_GATE_DB,
+  type PipelineState,
+  type PitchDetectionNote,
+} from './pitch-pipeline'
+
+// Re-export for backward compat — NoteFlash imports this type from here.
+export type { PitchDetectionNote } from './pitch-pipeline'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-
-export interface PitchDetectionNote {
-  name: string       // "E", "F#"
-  octave: number     // 2
-  fullName: string   // "E2"
-  midi: number       // 40
-  freq: number       // 82.41
-}
 
 export interface UsePitchDetectionOptions {
   onNote: (note: PitchDetectionNote) => void
@@ -35,41 +37,19 @@ export interface UsePitchDetectionResult {
   stop: () => void
 }
 
-// ─── Tuned constants (from handoff) ──────────────────────────────────────────
+// ─── Web Audio constants ─────────────────────────────────────────────────────
+// Pipeline logic constants (MIN_FREQ, MEDIAN_SIZE, etc.) live in pitch-pipeline.ts.
 
-const SAMPLE_RATE    = 44100
-const FFT_SIZE       = 2048
-const HPF_CUTOFF     = 70
-const HPF_Q          = 0.707
-const PRE_GAIN       = 12
-const NOISE_GATE_DB  = -60
+const SAMPLE_RATE = 44100
+const FFT_SIZE    = 2048
+const HPF_CUTOFF  = 70
+const HPF_Q       = 0.707
+const PRE_GAIN    = 12
 // detectPitch's threshold is a confidence floor (1 - cmnd).
 // Handoff specifies cmnd threshold 0.15, which equals confidence 0.85.
-const YIN_THRESHOLD  = 0.85
-const MIN_CONFIDENCE = 0.70
-const MIN_FREQ       = 70
-const MAX_FREQ       = 1400
-const MEDIAN_SIZE    = 5  // odd
-
-const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B']
+const YIN_THRESHOLD = 0.85
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function freqToMidi(freq: number): number {
-  return Math.round(12 * Math.log2(freq / 440) + 69)
-}
-
-function midiToNote(midi: number): PitchDetectionNote {
-  const octave = Math.floor(midi / 12) - 1
-  const name   = NOTE_NAMES[((midi % 12) + 12) % 12]
-  const freq   = 440 * Math.pow(2, (midi - 69) / 12)
-  return { name, octave, fullName: name + octave, midi, freq }
-}
-
-function medianMidi(buffer: number[]): number {
-  const sorted = [...buffer].sort((a, b) => a - b)
-  return sorted[Math.floor(sorted.length / 2)]
-}
 
 function getRmsDb(analyser: AnalyserNode, scratch: Float32Array): number {
   analyser.getFloatTimeDomainData(scratch)
@@ -99,7 +79,7 @@ export function usePitchDetection(
   const analyserRef    = useRef<AnalyserNode | null>(null)
   const yinBufferRef   = useRef<Float32Array | null>(null)
   const rawBufferRef   = useRef<Float32Array | null>(null)
-  const medianBufRef   = useRef<number[]>([])
+  const pipelineStateRef = useRef<PipelineState>(createPipelineState())
   const rafRef         = useRef<number>(0)
   const listeningRef   = useRef(false)
   // Generation counter — incremented on every cleanup. start() captures
@@ -132,7 +112,7 @@ export function usePitchDetection(
     analyserRef.current    = null
     yinBufferRef.current   = null
     rawBufferRef.current   = null
-    medianBufRef.current   = []
+    pipelineStateRef.current.medianBuffer.length = 0
     listeningRef.current   = false
     setListening(false)
   }, [])
@@ -153,28 +133,20 @@ export function usePitchDetection(
     const yinBuffer   = yinBufferRef.current
     const rawBuffer   = rawBufferRef.current
 
-    // Noise gate on RAW (pre-gain) signal
+    // Measure raw (pre-gain) RMS for noise gate
     const rawDb = getRmsDb(rawAnalyser, rawBuffer)
 
-    if (rawDb < NOISE_GATE_DB) {
-      medianBufRef.current = []
-    } else {
-      // Run YIN on post-gain signal
+    // Run YIN on post-gain signal (skipped below the gate — pipeline will
+    // reject-early, but we still need a yinResult or null as input)
+    let yinResult: { frequency: number; confidence: number } | null = null
+    if (rawDb >= NOISE_GATE_DB) {
       analyser.getFloatTimeDomainData(yinBuffer)
-      const result = detectPitch(yinBuffer, analyser.context.sampleRate, YIN_THRESHOLD)
+      yinResult = detectPitch(yinBuffer, analyser.context.sampleRate, YIN_THRESHOLD)
+    }
 
-      if (result) {
-        const { frequency: freq, confidence } = result
-        if (freq >= MIN_FREQ && freq <= MAX_FREQ && confidence >= MIN_CONFIDENCE) {
-          const buf = medianBufRef.current
-          buf.push(freqToMidi(freq))
-          if (buf.length > MEDIAN_SIZE) buf.shift()
-
-          if (buf.length === MEDIAN_SIZE) {
-            onNoteRef.current(midiToNote(medianMidi(buf)))
-          }
-        }
-      }
+    const out = processFrame(pipelineStateRef.current, { rawDb, yinResult })
+    if (out.emittedNote) {
+      onNoteRef.current(out.emittedNote)
     }
 
     rafRef.current = requestAnimationFrame(poll)
@@ -263,7 +235,7 @@ export function usePitchDetection(
 
       yinBufferRef.current = new Float32Array(analyser.fftSize)
       rawBufferRef.current = new Float32Array(rawAnalyser.fftSize)
-      medianBufRef.current = []
+      pipelineStateRef.current.medianBuffer.length = 0
 
       listeningRef.current = true
       setListening(true)
