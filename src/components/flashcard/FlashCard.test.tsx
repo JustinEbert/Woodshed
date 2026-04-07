@@ -1,6 +1,5 @@
-// FlashCard interaction tests — Story #27 followup
-// Reproduces the bug where a wrong-animation in flight blocks a subsequent
-// correct call. Correct must always win.
+// FlashCard interaction tests — Story #33
+// Wrong-answer mechanic removed. Only correct advance remains.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createRef } from 'react'
@@ -30,47 +29,7 @@ describe('FlashCard imperative handle', () => {
     expect(onCorrect).toHaveBeenCalledTimes(1)
   })
 
-  it('triggerWrong calls onWrong after the animation completes', () => {
-    const onWrong = vi.fn()
-    const ref = createRef<FlashCardHandle>()
-    render(<FlashCard ref={ref} value="A" stringIndex={5} onWrong={onWrong} />)
-
-    ref.current!.triggerWrong()
-    vi.advanceTimersByTime(320)
-    expect(onWrong).toHaveBeenCalledTimes(1)
-  })
-
-  it('triggerCorrect during an in-flight wrong animation still fires onCorrect', () => {
-    // This is the real-world failure mode: pitch detection emits a wrong
-    // octave first, then the correct note milliseconds later. The correct
-    // call must not be silently dropped.
-    const onCorrect = vi.fn()
-    const onWrong = vi.fn()
-    const ref = createRef<FlashCardHandle>()
-    render(
-      <FlashCard
-        ref={ref}
-        value="A"
-        stringIndex={5}
-        onCorrect={onCorrect}
-        onWrong={onWrong}
-      />,
-    )
-
-    ref.current!.triggerWrong()
-    // 50ms into the wrong animation, correct fires
-    vi.advanceTimersByTime(50)
-    ref.current!.triggerCorrect()
-
-    // Advance well past the correct animation
-    vi.advanceTimersByTime(250)
-    expect(onCorrect).toHaveBeenCalledTimes(1)
-  })
-
   it('back-to-back triggerCorrect calls only fire onCorrect once per animation', () => {
-    // Sustained correct notes from the polling loop should not stack
-    // multiple advances. This is the parent's job (latch), but FlashCard
-    // should also be idempotent within a single animation window.
     const onCorrect = vi.fn()
     const ref = createRef<FlashCardHandle>()
     render(<FlashCard ref={ref} value="A" stringIndex={5} onCorrect={onCorrect} />)
@@ -94,5 +53,16 @@ describe('FlashCard imperative handle', () => {
     ref.current!.triggerCorrect()
     vi.advanceTimersByTime(250)
     expect(onCorrect).toHaveBeenCalledTimes(2)
+  })
+
+  it('outer card has no border', () => {
+    const ref = createRef<FlashCardHandle>()
+    const { container } = render(
+      <FlashCard ref={ref} value="A" stringIndex={5} />,
+    )
+    // The outer card div is the first div with explicit height: 120px
+    const card = container.querySelector('div[style*="height: 120"]') as HTMLElement
+    expect(card).toBeTruthy()
+    expect(card.style.border).toBe('')
   })
 })

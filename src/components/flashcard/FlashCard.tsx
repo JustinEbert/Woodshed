@@ -57,88 +57,45 @@ export interface FlashCardProps {
   stringIndex: number
   /** Called after correct animation completes — parent advances to next note */
   onCorrect?: () => void
-  /** Called after wrong animation completes — parent stays on same note */
-  onWrong?: () => void
 }
 
-/** Imperative handle — parent exercise calls these when pitch detection responds */
+/** Imperative handle — parent exercise calls when sustain threshold is reached */
 export interface FlashCardHandle {
   triggerCorrect: () => void
-  triggerWrong: () => void
 }
 
 // ─── FlashCard ────────────────────────────────────────────────────────────────
 
 const FlashCard = forwardRef<FlashCardHandle, FlashCardProps>(function FlashCard(
-  { value, stringIndex, onCorrect, onWrong },
+  { value, stringIndex, onCorrect },
   ref
 ) {
   const numRef = useRef<HTMLSpanElement>(null)
-  // Track whichever animation is currently running so a new trigger
-  // can cancel its pending timeout instead of being silently dropped.
   const pendingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const activeKindRef = useRef<'correct' | 'wrong' | null>(null)
+  const animatingRef = useRef(false)
 
-  useImperativeHandle(ref, () => {
-    const clearPending = () => {
-      if (pendingTimeoutRef.current !== null) {
-        clearTimeout(pendingTimeoutRef.current)
+  useImperativeHandle(ref, () => ({
+    triggerCorrect() {
+      // Idempotent within a single animation window
+      if (animatingRef.current) return
+
+      const el = numRef.current
+      if (!el) return
+
+      animatingRef.current = true
+      el.classList.remove('fc-correct')
+      // Force reflow to restart animation
+      void el.offsetWidth
+      el.classList.add('fc-correct')
+
+      pendingTimeoutRef.current = setTimeout(() => {
+        el.classList.remove('fc-correct')
         pendingTimeoutRef.current = null
-      }
-    }
-
-    return {
-      triggerCorrect() {
-        // Idempotent within a single correct animation window — don't
-        // stack multiple advances when polling fires repeatedly.
-        if (activeKindRef.current === 'correct') return
-
-        const el = numRef.current
-        if (!el) return
-
-        // Cancel any in-flight wrong animation. Correct always wins.
-        clearPending()
-        activeKindRef.current = 'correct'
-
-        el.classList.remove('fc-correct', 'fc-wrong')
-        el.style.color = ''
-        // Force reflow to restart animation
-        void el.offsetWidth
-        el.classList.add('fc-correct')
-
-        pendingTimeoutRef.current = setTimeout(() => {
-          el.classList.remove('fc-correct')
-          pendingTimeoutRef.current = null
-          activeKindRef.current = null
-          onCorrect?.()
-        }, 210)
-      },
-
-      triggerWrong() {
-        // If a correct animation is in flight, do not interrupt it.
-        // If a wrong animation is in flight, do not stack it either —
-        // the parent's cooldown is the source of truth for spacing.
-        if (activeKindRef.current !== null) return
-
-        const el = numRef.current
-        if (!el) return
-
-        activeKindRef.current = 'wrong'
-        el.classList.remove('fc-correct', 'fc-wrong')
-        void el.offsetWidth
-        el.classList.add('fc-wrong')
-        el.style.color = 'var(--color-text-tertiary)'
-
-        pendingTimeoutRef.current = setTimeout(() => {
-          el.classList.remove('fc-wrong')
-          el.style.color = ''
-          pendingTimeoutRef.current = null
-          activeKindRef.current = null
-          onWrong?.()
-        }, 290)
-      },
-    }
-  }, [onCorrect, onWrong])
+        animatingRef.current = false
+        onCorrect?.()
+      }, 210)
+    },
+  }), [onCorrect])
 
   return (
     <>
@@ -149,21 +106,12 @@ const FlashCard = forwardRef<FlashCardHandle, FlashCardProps>(function FlashCard
           40%  { transform: scale(1.10); color: ${TEAL}; }
           100% { transform: scale(1);    color: var(--color-text-primary); }
         }
-        @keyframes fc-shakeX {
-          0%,100% { transform: translateX(0); }
-          20%     { transform: translateX(-8px); }
-          40%     { transform: translateX(8px); }
-          60%     { transform: translateX(-5px); }
-          80%     { transform: translateX(5px); }
-        }
         .fc-correct { animation: fc-correctScale 200ms ease-out forwards; }
-        .fc-wrong   { animation: fc-shakeX 280ms ease-out forwards; }
       `}</style>
 
       {/* Card */}
       <div
         style={{
-          border: '0.5px solid var(--color-border-secondary)',
           height: 120,
           overflow: 'hidden',
           width: '100%',

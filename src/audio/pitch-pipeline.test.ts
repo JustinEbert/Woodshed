@@ -221,6 +221,34 @@ describe('pitch-pipeline / processFrame', () => {
     })
   })
 
+  // ── Per-instance options ────────────────────────────────────────────────
+
+  describe('PipelineOptions', () => {
+    it('custom minConfidence rejects below the new threshold', () => {
+      const s = createPipelineState({ minConfidence: 0.9 })
+      const out = processFrame(s, frame(G3, 0.85))
+      expect(out.rejectReason).toBe('low-confidence')
+    })
+
+    it('custom minConfidence accepts at the new threshold', () => {
+      const s = createPipelineState({ minConfidence: 0.5 })
+      const out = processFrame(s, frame(G3, 0.55))
+      expect(out.rejectReason).toBe('filling-buffer')
+    })
+
+    it('custom medianWindow of 3 emits after 3 frames', () => {
+      const s = createPipelineState({ medianWindow: 3 })
+      let out
+      for (let i = 0; i < 3; i++) out = processFrame(s, frame(G3))
+      expect(out!.rejectReason).toBe('ok')
+      expect(out!.emittedNote!.fullName).toBe('G3')
+    })
+
+    it('throws on even medianWindow', () => {
+      expect(() => createPipelineState({ medianWindow: 4 })).toThrow()
+    })
+  })
+
   // ── Note accuracy ───────────────────────────────────────────────────────
 
   describe('emitted note accuracy', () => {

@@ -42,6 +42,17 @@ export function getNoteForFret(stringIndex: number, fret: number): string {
 }
 
 /**
+ * Get the full note name (with octave) for a given string and fret.
+ * e.g. low E open → "E2", 8th fret low E → "C3".
+ */
+export function getFullNoteForFret(stringIndex: number, fret: number): string {
+  const midi = OPEN_STRING_MIDI[stringIndex] + fret
+  const name = NOTE_NAMES[midi % 12]
+  const octave = Math.floor(midi / 12) - 1
+  return name + octave
+}
+
+/**
  * Get the first fret (0–11) where a note appears on a given string.
  * Returns the lowest fret position.
  */

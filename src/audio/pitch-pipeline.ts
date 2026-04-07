@@ -22,10 +22,26 @@ export interface PitchDetectionNote {
 export interface PipelineState {
   /** Rolling buffer of MIDI integers — median filter operates in semitone space */
   medianBuffer: number[]
+  /** Per-instance minimum YIN confidence */
+  minConfidence: number
+  /** Per-instance median window size (odd) */
+  medianWindow: number
 }
 
-export function createPipelineState(): PipelineState {
-  return { medianBuffer: [] }
+export interface PipelineOptions {
+  /** Minimum YIN confidence (0–1). Default 0.75. */
+  minConfidence?: number
+  /** Median window size. Must be odd. Default 5. */
+  medianWindow?: number
+}
+
+export function createPipelineState(opts?: PipelineOptions): PipelineState {
+  const minConfidence = opts?.minConfidence ?? MIN_CONFIDENCE
+  const medianWindow  = opts?.medianWindow  ?? MEDIAN_SIZE
+  if (medianWindow % 2 === 0) {
+    throw new Error(`medianWindow must be odd, got ${medianWindow}`)
+  }
+  return { medianBuffer: [], minConfidence, medianWindow }
 }
 
 /** Inputs for one analysis frame. */
@@ -62,9 +78,9 @@ export const NOISE_GATE_DB = -60
 /** Guitar frequency range — reject YIN results outside this window. */
 export const MIN_FREQ = 70
 export const MAX_FREQ = 1400
-/** Minimum YIN confidence (0–1) required to enter the median buffer. */
-export const MIN_CONFIDENCE = 0.70
-/** Median filter window size. Must be odd. */
+/** Default minimum YIN confidence (0–1) required to enter the median buffer. */
+export const MIN_CONFIDENCE = 0.75
+/** Default median filter window size. Must be odd. */
 export const MEDIAN_SIZE = 5
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -135,7 +151,7 @@ export function processFrame(
   }
 
   // 4. Confidence filter
-  if (confidence < MIN_CONFIDENCE) {
+  if (confidence < state.minConfidence) {
     return {
       rejectReason: 'low-confidence',
       rawNote,
@@ -146,12 +162,12 @@ export function processFrame(
 
   // 5. Valid frame → push to median buffer
   state.medianBuffer.push(rawMidi)
-  if (state.medianBuffer.length > MEDIAN_SIZE) {
+  if (state.medianBuffer.length > state.medianWindow) {
     state.medianBuffer.shift()
   }
 
   // 6. Not yet full → still filling
-  if (state.medianBuffer.length < MEDIAN_SIZE) {
+  if (state.medianBuffer.length < state.medianWindow) {
     return {
       rejectReason: 'filling-buffer',
       rawNote,

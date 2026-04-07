@@ -15,6 +15,7 @@ import {
   processFrame,
   createPipelineState,
   NOISE_GATE_DB,
+  type PipelineOptions,
   type PipelineState,
   type PitchDetectionNote,
 } from './pitch-pipeline'
@@ -24,7 +25,7 @@ export type { PitchDetectionNote } from './pitch-pipeline'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export interface UsePitchDetectionOptions {
+export interface UsePitchDetectionOptions extends PipelineOptions {
   onNote: (note: PitchDetectionNote) => void
 }
 
@@ -79,7 +80,12 @@ export function usePitchDetection(
   const analyserRef    = useRef<AnalyserNode | null>(null)
   const yinBufferRef   = useRef<Float32Array | null>(null)
   const rawBufferRef   = useRef<Float32Array | null>(null)
-  const pipelineStateRef = useRef<PipelineState>(createPipelineState())
+  const pipelineStateRef = useRef<PipelineState>(
+    createPipelineState({
+      minConfidence: options.minConfidence,
+      medianWindow:  options.medianWindow,
+    }),
+  )
   const rafRef         = useRef<number>(0)
   const listeningRef   = useRef(false)
   // Generation counter — incremented on every cleanup. start() captures

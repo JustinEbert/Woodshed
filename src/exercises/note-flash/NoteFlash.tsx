@@ -22,7 +22,11 @@ function shuffle<T>(arr: T[]): T[] {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const WRONG_COOLDOWN_MS = 500
+// Number of consecutive matching emissions required before advancing.
+// Each emission ≈ 46ms; total latency = medianWindow + sustainFrames frames.
+const SUSTAIN_FRAMES = 2
+const MIN_CONFIDENCE = 0.75
+const MEDIAN_WINDOW  = 5
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -33,9 +37,10 @@ export default function NoteFlash() {
   const [cursor, setCursor] = useState(0)
   const cardRef = useRef<FlashCardHandle>(null)
 
-  // Latches: prevent re-triggering on sustained notes
+  // Latch: prevent re-triggering after the advance animation fires
   const correctLatchedRef = useRef(false)
-  const lastWrongTimeRef = useRef(0)
+  // Sustain counter — increments on matching emissions, resets on mismatch
+  const sustainCountRef = useRef(0)
 
   // Stash current challenge in a ref so the onNote callback (which is a
   // stable closure inside the hook) always sees the latest challenge.
@@ -53,29 +58,37 @@ export default function NoteFlash() {
     }
   }, [cursor, queue.length])
 
-  // Reset the correct-latch whenever the challenge changes
+  // Reset latch + sustain counter whenever the challenge changes
   useEffect(() => {
     correctLatchedRef.current = false
+    sustainCountRef.current = 0
   }, [cursor, queue])
 
   const handleNote = useCallback((note: PitchDetectionNote) => {
     const challenge = currentRef.current
     if (!challenge) return
-    const result = matchNote(challenge, note.name)
+    if (correctLatchedRef.current) return
 
-    if (result.correct) {
-      if (correctLatchedRef.current) return
+    const result = matchNote(challenge, note.fullName)
+    if (!result.correct) {
+      // Wrong note → silent reset, no visual response
+      sustainCountRef.current = 0
+      return
+    }
+
+    sustainCountRef.current += 1
+    if (sustainCountRef.current >= SUSTAIN_FRAMES) {
       correctLatchedRef.current = true
+      sustainCountRef.current = 0
       cardRef.current?.triggerCorrect()
-    } else {
-      const now = Date.now()
-      if (now - lastWrongTimeRef.current < WRONG_COOLDOWN_MS) return
-      lastWrongTimeRef.current = now
-      cardRef.current?.triggerWrong()
     }
   }, [])
 
-  const { listening, permission, start } = usePitchDetection({ onNote: handleNote })
+  const { listening, permission, start } = usePitchDetection({
+    onNote: handleNote,
+    minConfidence: MIN_CONFIDENCE,
+    medianWindow:  MEDIAN_WINDOW,
+  })
 
   // Start microphone on mount
   useEffect(() => {
