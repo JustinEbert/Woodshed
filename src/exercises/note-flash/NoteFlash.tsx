@@ -1,11 +1,14 @@
-// Note Flash exercise — Story #14
+// Note Flash exercise — Stories #14 + #27
 // Exercise shell: takes a challenge pool, shuffles it, renders FlashCard,
 // handles correct/wrong, loops on pool exhaustion.
+// Uses usePitch hook for real guitar input via microphone.
 // Dev buttons simulate pitch detection — gated on import.meta.env.DEV.
 
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import FlashCard, { type FlashCardHandle } from '../../components/flashcard/FlashCard'
 import { buildLowEPool, type Challenge } from './pools'
+import { matchNote } from './note-matching'
+import { usePitchDetection, type PitchDetectionNote } from '../../audio/usePitchDetection'
 
 // ─── Shuffle utility ─────────────────────────────────────────────────────────
 
@@ -18,6 +21,10 @@ function shuffle<T>(arr: T[]): T[] {
   return a
 }
 
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const WRONG_COOLDOWN_MS = 500
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const pool = buildLowEPool()
@@ -27,7 +34,15 @@ export default function NoteFlash() {
   const [cursor, setCursor] = useState(0)
   const cardRef = useRef<FlashCardHandle>(null)
 
+  // Latches: prevent re-triggering on sustained notes
+  const correctLatchedRef = useRef(false)
+  const lastWrongTimeRef = useRef(0)
+
+  // Stash current challenge in a ref so the onNote callback (which is a
+  // stable closure inside the hook) always sees the latest challenge.
+  const currentRef = useRef<Challenge | null>(null)
   const current = queue[cursor]
+  currentRef.current = current
 
   const handleCorrect = useCallback(() => {
     const next = cursor + 1
@@ -38,6 +53,36 @@ export default function NoteFlash() {
       setCursor(next)
     }
   }, [cursor, queue.length])
+
+  // Reset the correct-latch whenever the challenge changes
+  useEffect(() => {
+    correctLatchedRef.current = false
+  }, [cursor, queue])
+
+  const handleNote = useCallback((note: PitchDetectionNote) => {
+    const challenge = currentRef.current
+    if (!challenge) return
+    const result = matchNote(challenge, note.name)
+
+    if (result.correct) {
+      if (correctLatchedRef.current) return
+      correctLatchedRef.current = true
+      cardRef.current?.triggerCorrect()
+    } else {
+      const now = Date.now()
+      if (now - lastWrongTimeRef.current < WRONG_COOLDOWN_MS) return
+      lastWrongTimeRef.current = now
+      cardRef.current?.triggerWrong()
+    }
+  }, [])
+
+  const { listening, permission, start } = usePitchDetection({ onNote: handleNote })
+
+  // Start microphone on mount
+  useEffect(() => {
+    start()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div
@@ -57,6 +102,23 @@ export default function NoteFlash() {
         stringIndex={current.stringIndex}
         onCorrect={handleCorrect}
       />
+
+      {/* Permission / status line */}
+      <div
+        style={{
+          fontFamily: 'var(--font-sans)',
+          fontSize: 11,
+          letterSpacing: '0.05em',
+          color: 'var(--color-text-tertiary)',
+          textAlign: 'center',
+          minHeight: 16,
+        }}
+      >
+        {permission === 'prompt' && 'requesting microphone…'}
+        {permission === 'granted' && listening && 'listening'}
+        {permission === 'denied' && 'microphone required for pitch detection'}
+        {permission === 'error' && 'microphone unavailable'}
+      </div>
 
       {/* Dev scaffolding — simulates pitch detection.
           Only in development builds. Not shipped to users. */}
