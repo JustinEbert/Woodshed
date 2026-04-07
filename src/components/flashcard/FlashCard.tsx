@@ -73,49 +73,72 @@ const FlashCard = forwardRef<FlashCardHandle, FlashCardProps>(function FlashCard
   { value, stringIndex, onCorrect, onWrong },
   ref
 ) {
-  const numRef  = useRef<HTMLSpanElement>(null)
-  const busyRef = useRef(false)
+  const numRef = useRef<HTMLSpanElement>(null)
+  // Track whichever animation is currently running so a new trigger
+  // can cancel its pending timeout instead of being silently dropped.
+  const pendingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const activeKindRef = useRef<'correct' | 'wrong' | null>(null)
 
-  useImperativeHandle(ref, () => ({
-    triggerCorrect() {
-      if (busyRef.current) return
-      busyRef.current = true
+  useImperativeHandle(ref, () => {
+    const clearPending = () => {
+      if (pendingTimeoutRef.current !== null) {
+        clearTimeout(pendingTimeoutRef.current)
+        pendingTimeoutRef.current = null
+      }
+    }
 
-      const el = numRef.current
-      if (!el) return
+    return {
+      triggerCorrect() {
+        // Idempotent within a single correct animation window — don't
+        // stack multiple advances when polling fires repeatedly.
+        if (activeKindRef.current === 'correct') return
 
-      // Force reflow to restart animation if already running
-      el.classList.remove('fc-correct', 'fc-wrong')
-      void el.offsetWidth
+        const el = numRef.current
+        if (!el) return
 
-      el.classList.add('fc-correct')
-      setTimeout(() => {
-        el.classList.remove('fc-correct')
-        busyRef.current = false
-        onCorrect?.()
-      }, 210)
-    },
+        // Cancel any in-flight wrong animation. Correct always wins.
+        clearPending()
+        activeKindRef.current = 'correct'
 
-    triggerWrong() {
-      if (busyRef.current) return
-      busyRef.current = true
-
-      const el = numRef.current
-      if (!el) return
-
-      el.classList.remove('fc-correct', 'fc-wrong')
-      void el.offsetWidth
-
-      el.classList.add('fc-wrong')
-      el.style.color = 'var(--color-text-tertiary)'
-      setTimeout(() => {
-        el.classList.remove('fc-wrong')
+        el.classList.remove('fc-correct', 'fc-wrong')
         el.style.color = ''
-        busyRef.current = false
-        onWrong?.()
-      }, 290)
-    },
-  }), [onCorrect, onWrong])
+        // Force reflow to restart animation
+        void el.offsetWidth
+        el.classList.add('fc-correct')
+
+        pendingTimeoutRef.current = setTimeout(() => {
+          el.classList.remove('fc-correct')
+          pendingTimeoutRef.current = null
+          activeKindRef.current = null
+          onCorrect?.()
+        }, 210)
+      },
+
+      triggerWrong() {
+        // If a correct animation is in flight, do not interrupt it.
+        // If a wrong animation is in flight, do not stack it either —
+        // the parent's cooldown is the source of truth for spacing.
+        if (activeKindRef.current !== null) return
+
+        const el = numRef.current
+        if (!el) return
+
+        activeKindRef.current = 'wrong'
+        el.classList.remove('fc-correct', 'fc-wrong')
+        void el.offsetWidth
+        el.classList.add('fc-wrong')
+        el.style.color = 'var(--color-text-tertiary)'
+
+        pendingTimeoutRef.current = setTimeout(() => {
+          el.classList.remove('fc-wrong')
+          el.style.color = ''
+          pendingTimeoutRef.current = null
+          activeKindRef.current = null
+          onWrong?.()
+        }, 290)
+      },
+    }
+  }, [onCorrect, onWrong])
 
   return (
     <>

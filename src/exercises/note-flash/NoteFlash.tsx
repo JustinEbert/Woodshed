@@ -1,8 +1,7 @@
 // Note Flash exercise — Stories #14 + #27
 // Exercise shell: takes a challenge pool, shuffles it, renders FlashCard,
 // handles correct/wrong, loops on pool exhaustion.
-// Uses usePitch hook for real guitar input via microphone.
-// Dev buttons simulate pitch detection — gated on import.meta.env.DEV.
+// Uses usePitchDetection hook for real guitar input via microphone.
 
 import { useRef, useState, useCallback, useEffect } from 'react'
 import FlashCard, { type FlashCardHandle } from '../../components/flashcard/FlashCard'
@@ -120,44 +119,6 @@ export default function NoteFlash() {
         {permission === 'error' && 'microphone unavailable'}
       </div>
 
-      {/* Dev scaffolding — simulates pitch detection.
-          Only in development builds. Not shipped to users. */}
-      {import.meta.env.DEV && (
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            onClick={() => cardRef.current?.triggerWrong()}
-            style={{
-              flex: 1,
-              padding: '8px',
-              fontFamily: 'var(--font-sans)',
-              fontSize: 11,
-              borderRadius: 0,
-              border: '0.5px solid rgba(200,80,80,0.35)',
-              background: 'transparent',
-              color: 'rgba(200,80,80,0.75)',
-              cursor: 'pointer',
-            }}
-          >
-            ✗ wrong
-          </button>
-          <button
-            onClick={() => cardRef.current?.triggerCorrect()}
-            style={{
-              flex: 1,
-              padding: '8px',
-              fontFamily: 'var(--font-sans)',
-              fontSize: 11,
-              borderRadius: 0,
-              border: '0.5px solid rgba(74,184,212,0.4)',
-              background: 'transparent',
-              color: '#4ab8d4',
-              cursor: 'pointer',
-            }}
-          >
-            ✓ correct
-          </button>
-        </div>
-      )}
     </div>
   )
 }

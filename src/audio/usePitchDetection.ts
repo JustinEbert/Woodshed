@@ -37,19 +37,19 @@ export interface UsePitchDetectionResult {
 
 // ─── Tuned constants (from handoff) ──────────────────────────────────────────
 
-const SAMPLE_RATE       = 44100
-const FFT_SIZE          = 2048
-const HPF_CUTOFF        = 70
-const HPF_Q             = 0.707
-const PRE_GAIN          = 12
-const NOISE_GATE_DB     = -60
+const SAMPLE_RATE    = 44100
+const FFT_SIZE       = 2048
+const HPF_CUTOFF     = 70
+const HPF_Q          = 0.707
+const PRE_GAIN       = 12
+const NOISE_GATE_DB  = -60
 // detectPitch's threshold is a confidence floor (1 - cmnd).
 // Handoff specifies cmnd threshold 0.15, which equals confidence 0.85.
-const YIN_THRESHOLD     = 0.85
-const MIN_CONFIDENCE    = 0.70
-const MIN_FREQ          = 70
-const MAX_FREQ          = 1400
-const MEDIAN_SIZE       = 5  // odd
+const YIN_THRESHOLD  = 0.85
+const MIN_CONFIDENCE = 0.70
+const MIN_FREQ       = 70
+const MAX_FREQ       = 1400
+const MEDIAN_SIZE    = 5  // odd
 
 const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B']
 
@@ -60,9 +60,9 @@ function freqToMidi(freq: number): number {
 }
 
 function midiToNote(midi: number): PitchDetectionNote {
-  const octave   = Math.floor(midi / 12) - 1
-  const name     = NOTE_NAMES[((midi % 12) + 12) % 12]
-  const freq     = 440 * Math.pow(2, (midi - 69) / 12)
+  const octave = Math.floor(midi / 12) - 1
+  const name   = NOTE_NAMES[((midi % 12) + 12) % 12]
+  const freq   = 440 * Math.pow(2, (midi - 69) / 12)
   return { name, octave, fullName: name + octave, midi, freq }
 }
 
@@ -102,10 +102,16 @@ export function usePitchDetection(
   const medianBufRef   = useRef<number[]>([])
   const rafRef         = useRef<number>(0)
   const listeningRef   = useRef(false)
+  // Generation counter — incremented on every cleanup. start() captures
+  // its generation and aborts at every async boundary if it has gone stale.
+  // This survives React StrictMode's mount → cleanup → mount cycle.
+  const generationRef  = useRef(0)
 
   // ── Cleanup ────────────────────────────────────────────────────────────
 
   const cleanup = useCallback(() => {
+    // Bump generation so any in-flight start() aborts
+    generationRef.current++
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current)
       rafRef.current = 0
@@ -149,31 +155,24 @@ export function usePitchDetection(
 
     // Noise gate on RAW (pre-gain) signal
     const rawDb = getRmsDb(rawAnalyser, rawBuffer)
+
     if (rawDb < NOISE_GATE_DB) {
       medianBufRef.current = []
-      rafRef.current = requestAnimationFrame(poll)
-      return
-    }
+    } else {
+      // Run YIN on post-gain signal
+      analyser.getFloatTimeDomainData(yinBuffer)
+      const result = detectPitch(yinBuffer, analyser.context.sampleRate, YIN_THRESHOLD)
 
-    // Run YIN on post-gain signal
-    analyser.getFloatTimeDomainData(yinBuffer)
-    const result = yinPitch(yinBuffer, analyser.context.sampleRate, YIN_THRESHOLD)
+      if (result) {
+        const { frequency: freq, confidence } = result
+        if (freq >= MIN_FREQ && freq <= MAX_FREQ && confidence >= MIN_CONFIDENCE) {
+          const buf = medianBufRef.current
+          buf.push(freqToMidi(freq))
+          if (buf.length > MEDIAN_SIZE) buf.shift()
 
-    if (result) {
-      const { frequency: freq, confidence } = result
-      if (
-        freq >= MIN_FREQ &&
-        freq <= MAX_FREQ &&
-        confidence >= MIN_CONFIDENCE
-      ) {
-        const midi = freqToMidi(freq)
-        const buf = medianBufRef.current
-        buf.push(midi)
-        if (buf.length > MEDIAN_SIZE) buf.shift()
-
-        if (buf.length === MEDIAN_SIZE) {
-          const note = midiToNote(medianMidi(buf))
-          onNoteRef.current(note)
+          if (buf.length === MEDIAN_SIZE) {
+            onNoteRef.current(midiToNote(medianMidi(buf)))
+          }
         }
       }
     }
@@ -191,6 +190,8 @@ export function usePitchDetection(
       return
     }
 
+    const myGeneration = generationRef.current
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -200,11 +201,28 @@ export function usePitchDetection(
           sampleRate: SAMPLE_RATE,
         },
       })
+
+      // Aborted by cleanup while we were awaiting?
+      if (myGeneration !== generationRef.current) {
+        for (const track of stream.getTracks()) track.stop()
+        return
+      }
+
       streamRef.current = stream
       setPermission('granted')
 
       const audioCtx = new AudioContext({ sampleRate: SAMPLE_RATE })
       audioCtxRef.current = audioCtx
+      // Some browsers create the context in 'suspended' until a gesture.
+      // getUserMedia counts as one — resume explicitly to be safe.
+      if (audioCtx.state === 'suspended') {
+        try { await audioCtx.resume() } catch { /* ignore */ }
+      }
+      if (myGeneration !== generationRef.current) {
+        audioCtx.close()
+        for (const track of stream.getTracks()) track.stop()
+        return
+      }
 
       const source = audioCtx.createMediaStreamSource(stream)
       sourceRef.current = source
