@@ -13,6 +13,12 @@ dist-ssr
 *.local
 *.tsbuildinfo
 
+# Generated PWA icons (built from assets/icons/woodshed-icon.svg
+# via scripts/generate-icons.mjs — see prebuild hook in package.json)
+public/icon-192.png
+public/icon-512.png
+public/icon-maskable-512.png
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
