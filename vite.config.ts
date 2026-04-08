@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// Deployed to GitHub Pages at https://jebert.github.io/Woodshed/ — the
+// Deployed to GitHub Pages at https://justinebert.github.io/Woodshed/ — the
 // repo-name base path is required so all asset URLs resolve correctly
 // under the project-pages subdirectory. Manifest icon `src` values use
 // relative paths so the browser resolves them against the manifest's

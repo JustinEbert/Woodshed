@@ -4,7 +4,7 @@ AI-powered personal practice trainer for musicians. Starting with guitar, instru
 
 The AI is the trainer, not a feature. It observes structured performance summaries, knows your history, and gives adaptive guidance in real time. The experience should feel like a knowledgeable teacher in the room — not a gamified quiz app.
 
-**Live app:** https://jebert.github.io/Woodshed/
+**Live app:** https://justinebert.github.io/Woodshed/
 
 ---
 
