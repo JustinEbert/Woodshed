@@ -95,10 +95,6 @@ export const MAX_CENTS_OFF = 30
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
-function freqToMidi(freq: number): number {
-  return Math.round(12 * Math.log2(freq / 440) + 69)
-}
-
 function midiToNote(midi: number): PitchDetectionNote {
   const octave = Math.floor(midi / 12) - 1
   const name = NOTE_NAMES[((midi % 12) + 12) % 12]
