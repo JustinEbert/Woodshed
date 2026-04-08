@@ -48,9 +48,15 @@ jobs:
         uses: actions/configure-pages@v4
 
       - name: Install dependencies
-        # npm ci runs the `postinstall` hook which generates the PWA
-        # icons from assets/icons/woodshed-icon.svg via sharp.
-        run: npm ci
+        # npm install runs the `postinstall` hook which generates
+        # the PWA icons from assets/icons/woodshed-icon.svg via sharp.
+        #
+        # Using `npm install` (not `npm ci`) deliberately: vitest@4
+        # ships a nested vite@8 that declares `esbuild@^0.27.0` as a
+        # peer dep, and npm 10 (bundled with node 20) errors on
+        # `npm ci` when the peer isn't fully resolved in the lock
+        # file. `npm install` handles this gracefully.
+        run: npm install --no-audit --no-fund
 
       - name: Build
         # The `prebuild` hook also regenerates icons (belt and suspenders).
