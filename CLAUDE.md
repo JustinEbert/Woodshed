@@ -96,7 +96,7 @@ or audio output must be verified on all supported platforms before closing.
 
 | platform | browser | install method | offline | status |
 |----------|---------|----------------|---------|--------|
-| Android (Pixel 9 Pro, Android 15) | Chrome (latest) | PWA — Add to Home Screen | full | planned (#35) |
+| Android (Pixel 9 Pro, Android 15) | Chrome (latest) | PWA — Add to Home Screen | full | in progress (#35) — installable + runs; mic UX/voice/QA pass in flight |
 | Desktop (macOS) | Chrome (latest) | browser tab | n/a (dev reference) | **supported** |
 
 **offline support definition:** after one online visit, all exercises,
