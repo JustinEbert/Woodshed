@@ -88,6 +88,32 @@ tap to browse (exercise select sheet) is the fallback.
 
 ---
 
+## supported platforms
+
+these are the platforms Woodshed officially supports. new stories with UI
+or audio output must be verified on all supported platforms before closing.
+
+| platform | browser | install method | offline | status |
+|----------|---------|----------------|---------|--------|
+| Android (Pixel 9 Pro, Android 15) | Chrome (latest) | PWA — Add to Home Screen | full | planned (#35) |
+| Desktop (macOS) | Chrome (latest) | browser tab | n/a (dev reference) | **supported** |
+
+**offline support definition:** after one online visit, all exercises,
+metronome, and pitch detection work with no network. the AI trainer
+suspends and shows self-directed mode. voice input (Web Speech API)
+degrades gracefully — not available offline on Android Chrome.
+
+**not yet supported:**
+- iOS / Safari (Web Audio API and PWA install behavior differ significantly)
+- Firefox (no testing done)
+- Windows desktop
+
+when a story's acceptance criteria include platform verification, test
+on all supported platforms listed above. if a platform is added here,
+a QA story (like #40) should gate its entry before it's listed as supported.
+
+---
+
 ## development process
 
 ### one story at a time
@@ -441,3 +467,4 @@ epics:
 - Note Flash Exercise
 - Note Hunt Exercise (later)
 - AI Trainer Integration
+- Android PWA Support (#35) — Pixel 9 Pro, offline-capable
