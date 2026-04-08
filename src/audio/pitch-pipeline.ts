@@ -26,6 +26,8 @@ export interface PipelineState {
   minConfidence: number
   /** Per-instance median window size (odd) */
   medianWindow: number
+  /** Per-instance max cents deviation from nearest equal-tempered note */
+  maxCentsOff: number
 }
 
 export interface PipelineOptions {
@@ -33,15 +35,18 @@ export interface PipelineOptions {
   minConfidence?: number
   /** Median window size. Must be odd. Default 5. */
   medianWindow?: number
+  /** Max cents deviation from nearest semitone. Default 30. */
+  maxCentsOff?: number
 }
 
 export function createPipelineState(opts?: PipelineOptions): PipelineState {
   const minConfidence = opts?.minConfidence ?? MIN_CONFIDENCE
   const medianWindow  = opts?.medianWindow  ?? MEDIAN_SIZE
+  const maxCentsOff   = opts?.maxCentsOff   ?? MAX_CENTS_OFF
   if (medianWindow % 2 === 0) {
     throw new Error(`medianWindow must be odd, got ${medianWindow}`)
   }
-  return { medianBuffer: [], minConfidence, medianWindow }
+  return { medianBuffer: [], minConfidence, medianWindow, maxCentsOff }
 }
 
 /** Inputs for one analysis frame. */
@@ -58,6 +63,7 @@ export type RejectReason =
   | 'no-pitch'
   | 'out-of-range'
   | 'low-confidence'
+  | 'out-of-tune'
   | 'filling-buffer'
   | 'ok'
 
@@ -82,6 +88,8 @@ export const MAX_FREQ = 1400
 export const MIN_CONFIDENCE = 0.75
 /** Default median filter window size. Must be odd. */
 export const MEDIAN_SIZE = 5
+/** Default max cents deviation from nearest equal-tempered semitone. */
+export const MAX_CENTS_OFF = 30
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -137,7 +145,9 @@ export function processFrame(
   }
 
   const { frequency, confidence } = yinResult
-  const rawMidi = freqToMidi(frequency)
+  const midiFloat = 12 * Math.log2(frequency / 440) + 69
+  const rawMidi = Math.round(midiFloat)
+  const cents = Math.abs((midiFloat - rawMidi) * 100)
   const rawNote = midiToNote(rawMidi)
 
   // 3. Range filter — guitar frequencies only
@@ -154,6 +164,16 @@ export function processFrame(
   if (confidence < state.minConfidence) {
     return {
       rejectReason: 'low-confidence',
+      rawNote,
+      emittedNote: null,
+      bufferFill: state.medianBuffer.length,
+    }
+  }
+
+  // 4b. In-tune filter — reject if too far off the nearest semitone
+  if (cents > state.maxCentsOff) {
+    return {
+      rejectReason: 'out-of-tune',
       rawNote,
       emittedNote: null,
       bufferFill: state.medianBuffer.length,

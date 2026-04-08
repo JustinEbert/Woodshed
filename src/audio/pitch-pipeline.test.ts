@@ -39,6 +39,11 @@ const G2 = 98     // MIDI 43 (octave below)
 const E2 = 82.41  // MIDI 40
 const A4 = 440    // MIDI 69
 
+/** Detune a base frequency by `cents` (positive = sharp, negative = flat). */
+function detuneHz(baseHz: number, cents: number): number {
+  return baseHz * Math.pow(2, cents / 1200)
+}
+
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('pitch-pipeline / processFrame', () => {
@@ -246,6 +251,82 @@ describe('pitch-pipeline / processFrame', () => {
 
     it('throws on even medianWindow', () => {
       expect(() => createPipelineState({ medianWindow: 4 })).toThrow()
+    })
+  })
+
+  // ── Cents tolerance (Story #34) ─────────────────────────────────────────
+
+  describe('cents tolerance (in-tune filter)', () => {
+    it('A4 dead-on (440 Hz) is in tune', () => {
+      const out = processFrame(state, frame(A4))
+      expect(out.rejectReason).toBe('filling-buffer')
+      expect(out.rawNote!.fullName).toBe('A4')
+    })
+
+    it('A4 +29 cents is in tune (just under default 30)', () => {
+      const out = processFrame(state, frame(detuneHz(A4, 29)))
+      expect(out.rejectReason).toBe('filling-buffer')
+    })
+
+    it('A4 +31 cents is out of tune', () => {
+      const out = processFrame(state, frame(detuneHz(A4, 31)))
+      expect(out.rejectReason).toBe('out-of-tune')
+      expect(out.emittedNote).toBeNull()
+    })
+
+    it('A4 -31 cents is out of tune', () => {
+      const out = processFrame(state, frame(detuneHz(A4, -31)))
+      expect(out.rejectReason).toBe('out-of-tune')
+    })
+
+    it('A4 +49 cents is out of tune (regression — was previously accepted)', () => {
+      const out = processFrame(state, frame(detuneHz(A4, 49)))
+      expect(out.rejectReason).toBe('out-of-tune')
+    })
+
+    it('A4 +85 cents rounds to A#4 and is in tune for it (15 cents flat of A#4)', () => {
+      const out = processFrame(state, frame(detuneHz(A4, 85)))
+      expect(out.rejectReason).toBe('filling-buffer')
+      expect(out.rawNote!.fullName).toBe('A#4')
+    })
+
+    it('A4 +51 cents rounds to A#4 but is still 49 cents flat of it → out-of-tune', () => {
+      const out = processFrame(state, frame(detuneHz(A4, 51)))
+      expect(out.rejectReason).toBe('out-of-tune')
+      expect(out.rawNote!.fullName).toBe('A#4')
+    })
+
+    it('out-of-tune frame does NOT clear the median buffer', () => {
+      processFrame(state, frame(A4))
+      processFrame(state, frame(A4))
+      expect(state.medianBuffer.length).toBe(2)
+
+      processFrame(state, frame(detuneHz(A4, 49)))
+      expect(state.medianBuffer.length).toBe(2)
+
+      processFrame(state, frame(A4))
+      processFrame(state, frame(A4))
+      const out = processFrame(state, frame(A4))
+      expect(out.rejectReason).toBe('ok')
+      expect(out.emittedNote!.fullName).toBe('A4')
+    })
+
+    it('rawNote is still set on out-of-tune frames', () => {
+      const out = processFrame(state, frame(detuneHz(A4, 40)))
+      expect(out.rawNote).not.toBeNull()
+      expect(out.rawNote!.fullName).toBe('A4')
+    })
+
+    it('custom maxCentsOff: 10 rejects A4 +15 cents', () => {
+      const s = createPipelineState({ maxCentsOff: 10 })
+      const out = processFrame(s, frame(detuneHz(A4, 15)))
+      expect(out.rejectReason).toBe('out-of-tune')
+    })
+
+    it('custom maxCentsOff: 10 accepts A4 +5 cents', () => {
+      const s = createPipelineState({ maxCentsOff: 10 })
+      const out = processFrame(s, frame(detuneHz(A4, 5)))
+      expect(out.rejectReason).toBe('filling-buffer')
     })
   })
 

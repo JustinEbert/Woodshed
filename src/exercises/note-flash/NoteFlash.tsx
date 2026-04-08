@@ -27,6 +27,7 @@ function shuffle<T>(arr: T[]): T[] {
 const SUSTAIN_FRAMES = 2
 const MIN_CONFIDENCE = 0.75
 const MEDIAN_WINDOW  = 5
+const MAX_CENTS_OFF  = 30
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -88,6 +89,7 @@ export default function NoteFlash() {
     onNote: handleNote,
     minConfidence: MIN_CONFIDENCE,
     medianWindow:  MEDIAN_WINDOW,
+    maxCentsOff:   MAX_CENTS_OFF,
   })
 
   // Start microphone on mount

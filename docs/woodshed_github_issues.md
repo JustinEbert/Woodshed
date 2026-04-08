@@ -430,5 +430,3 @@ Acceptance criteria:
 - [ ] Network error handled gracefully (no crash, fallback message)
 - [ ] Response time acceptable (non-blocking — UI continues during call)
 - [ ] Offline: no call attempted, offline state shown
-
----
