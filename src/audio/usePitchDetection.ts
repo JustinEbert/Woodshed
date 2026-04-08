@@ -52,7 +52,11 @@ const YIN_THRESHOLD = 0.85
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function getRmsDb(analyser: AnalyserNode, scratch: Float32Array): number {
+// Float32Array<ArrayBuffer> (not <ArrayBufferLike>) is required by the
+// Web Audio API in TS 5.7+: getFloatTimeDomainData specifically excludes
+// SharedArrayBuffer-backed views. Annotate explicitly so the refs below
+// don't widen to ArrayBufferLike.
+function getRmsDb(analyser: AnalyserNode, scratch: Float32Array<ArrayBuffer>): number {
   analyser.getFloatTimeDomainData(scratch)
   let sum = 0
   for (let i = 0; i < scratch.length; i++) sum += scratch[i] * scratch[i]
@@ -78,8 +82,8 @@ export function usePitchDetection(
   const sourceRef      = useRef<MediaStreamAudioSourceNode | null>(null)
   const rawAnalyserRef = useRef<AnalyserNode | null>(null)
   const analyserRef    = useRef<AnalyserNode | null>(null)
-  const yinBufferRef   = useRef<Float32Array | null>(null)
-  const rawBufferRef   = useRef<Float32Array | null>(null)
+  const yinBufferRef   = useRef<Float32Array<ArrayBuffer> | null>(null)
+  const rawBufferRef   = useRef<Float32Array<ArrayBuffer> | null>(null)
   const pipelineStateRef = useRef<PipelineState>(
     createPipelineState({
       minConfidence: options.minConfidence,

@@ -58,7 +58,11 @@ export function getFullNoteForFret(stringIndex: number, fret: number): string {
  */
 export function getFretForNote(stringIndex: number, noteName: string): number {
   const openMidi = OPEN_STRING_MIDI[stringIndex]
-  const targetIndex = NOTE_NAMES.indexOf(noteName)
+  // NOTE_NAMES is `as const` (readonly tuple of literals), so its native
+  // `.indexOf` signature narrows the argument to the literal union.
+  // We intentionally accept any string and validate via the -1 check,
+  // so widen to `readonly string[]` for the lookup.
+  const targetIndex = (NOTE_NAMES as readonly string[]).indexOf(noteName)
   if (targetIndex === -1) {
     throw new Error(`Unknown note name: ${noteName}`)
   }

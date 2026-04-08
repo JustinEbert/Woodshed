@@ -3,7 +3,7 @@
 // Drag handle always visible. Tighter spacing, design-system-consistent.
 
 import { useEffect, useRef, useState } from 'react'
-import { useMetronome, MIN_BPM, MAX_BPM } from '../../state/metronome'
+import { useMetronome } from '../../state/metronome'
 
 // ─── Drum pattern (same as audio engine) ─────────────────────────────────────
 
@@ -148,7 +148,7 @@ interface MetronomeDrawerProps {
 }
 
 export default function MetronomeDrawer({ open }: MetronomeDrawerProps) {
-  const { bpm, beat, running, setBpm, toggle } = useMetronome()
+  const { bpm, beat, running, setBpm } = useMetronome()
   const [hasAnimated, setHasAnimated] = useState(false)
 
   // Enable animation after first render to prevent flash on mount

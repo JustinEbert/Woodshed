@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { detectPitch, type PitchResult } from './pitch-detection'
+import { detectPitch } from './pitch-detection'
 
 // ─── Test helpers ────────────────────────────────────────────────────────────
 
