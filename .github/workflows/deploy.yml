@@ -1,0 +1,73 @@
+# Deploys Woodshed to GitHub Pages on every push to main.
+#
+# First-time setup (one-time, manual):
+#   1. Repo Settings → Pages → Source → "GitHub Actions"
+#   2. Push this workflow file and wait for the first run to complete
+#   3. The deployed URL is https://<user>.github.io/Woodshed/
+#
+# The build uses vite-plugin-pwa, which generates the service worker
+# and manifest at build time. The repo-name base path ('/Woodshed/')
+# is set in vite.config.ts so all asset URLs resolve correctly under
+# the project-pages subdirectory.
+
+name: Deploy to GitHub Pages
+
+on:
+  # Deploy on every push to main
+  push:
+    branches: [main]
+  # Allow manual runs from the Actions tab
+  workflow_dispatch:
+
+# GITHUB_TOKEN permissions needed to deploy to Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Prevent concurrent deploys from stomping each other; do not cancel
+# an in-flight deploy — let it finish cleanly before the next one starts.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v4
+
+      - name: Install dependencies
+        # npm ci runs the `postinstall` hook which generates the PWA
+        # icons from assets/icons/woodshed-icon.svg via sharp.
+        run: npm ci
+
+      - name: Build
+        # The `prebuild` hook also regenerates icons (belt and suspenders).
+        run: npm run build
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

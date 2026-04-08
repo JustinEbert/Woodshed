@@ -20,7 +20,8 @@ Design prototypes:
 
 ```
 frontend:   React + Vite + Tailwind CSS + shadcn/ui
-deployment: Vercel (PWA)
+deployment: GitHub Pages (PWA) — https://jebert.github.io/Woodshed/
+            auto-deploys from main via .github/workflows/deploy.yml
 audio:      Web Audio API (local, on-device)
 speech:     Web Speech API (local, on-device — voice input to AI trainer)
 ai:         Anthropic Claude API (claude-sonnet-4-20250514)

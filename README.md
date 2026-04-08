@@ -4,6 +4,8 @@ AI-powered personal practice trainer for musicians. Starting with guitar, instru
 
 The AI is the trainer, not a feature. It observes structured performance summaries, knows your history, and gives adaptive guidance in real time. The experience should feel like a knowledgeable teacher in the room — not a gamified quiz app.
 
+**Live app:** https://jebert.github.io/Woodshed/
+
 ---
 
 ## Stack
@@ -11,7 +13,7 @@ The AI is the trainer, not a feature. It observes structured performance summari
 | Layer | Tech |
 |-------|------|
 | Frontend | React + Vite + Tailwind CSS + shadcn/ui |
-| Deployment | Vercel (PWA) |
+| Deployment | GitHub Pages (PWA), auto-deployed from `main` via GitHub Actions |
 | Audio | Web Audio API (local, on-device) |
 | Speech | Web Speech API (local, on-device) |
 | AI | Anthropic Claude API (`claude-sonnet-4-20250514`) |
