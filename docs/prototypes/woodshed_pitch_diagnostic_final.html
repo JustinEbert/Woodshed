@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Woodshed — Pitch Diagnostic Final · YIN + Median Filter + 2-pole HPF</title>
+<style>
+  :root {
+    --color-background-primary: #ffffff;
+    --color-background-secondary: #f4f4f2;
+    --color-text-primary: #1a1a1a;
+    --color-text-secondary: #555550;
+    --color-text-tertiary: #99998f;
+    --color-border-secondary: rgba(0,0,0,0.3);
+    --color-border-tertiary: rgba(0,0,0,0.12);
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'Courier New', Courier, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-background-primary: #1a1a1a;
+      --color-background-secondary: #252525;
+      --color-text-primary: #f0f0ec;
+      --color-text-secondary: #aaaaaa;
+      --color-text-tertiary: #666660;
+      --color-border-secondary: rgba(255,255,255,0.3);
+      --color-border-tertiary: rgba(255,255,255,0.12);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--color-background-primary);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    padding: 2rem;
+  }
+  .page {
+    display: flex; flex-direction: column; gap: 1.25rem;
+    max-width: 560px; margin: 0 auto;
+  }
+  h1 { font-size: 14px; font-weight: 500; }
+  .label {
+    font-size: 11px; color: var(--color-text-tertiary);
+    letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 4px;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 20px; font-size: 14px; border-radius: 8px;
+    border: 0.5px solid var(--color-border-secondary);
+    background: var(--color-background-secondary);
+    color: var(--color-text-primary); cursor: pointer;
+    font-family: var(--font-sans);
+  }
+  .btn.active {
+    background: var(--color-text-primary);
+    color: var(--color-background-primary);
+    border-color: transparent;
+  }
+  .btn:active { transform: scale(0.98); }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--color-border-secondary); flex-shrink: 0;
+  }
+  .status-dot.on { background: #4ab8d4; }
+
+  .new-section {
+    border: 1.5px solid #4ab8d4;
+    padding: 12px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .new-label {
+    font-size: 11px; color: #4ab8d4;
+    letter-spacing: 0.05em; text-transform: uppercase;
+  }
+  .new-sub { font-size: 11px; color: var(--color-text-tertiary); line-height: 1.5; }
+
+  .settings {
+    border: 0.5px solid var(--color-border-tertiary);
+    padding: 12px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  }
+  .setting-block { display: flex; flex-direction: column; gap: 4px; }
+  .setting-label { font-size: 11px; color: var(--color-text-tertiary); }
+  .setting-row { display: flex; align-items: center; gap: 8px; }
+  .setting-val {
+    font-size: 12px; font-family: var(--font-mono);
+    color: var(--color-text-secondary); min-width: 44px; text-align: right;
+  }
+  input[type=range] { flex: 1; accent-color: #4ab8d4; }
+  select {
+    flex: 1; font-family: var(--font-mono); font-size: 12px;
+    background: var(--color-background-primary);
+    color: var(--color-text-primary);
+    border: 0.5px solid var(--color-border-secondary); padding: 3px;
+  }
+
+  .meters { display: flex; flex-direction: column; gap: 8px; }
+  .meter-row { display: flex; align-items: center; gap: 12px; }
+  .meter-label {
+    font-size: 11px; color: var(--color-text-tertiary);
+    width: 100px; flex-shrink: 0;
+  }
+  .meter-track {
+    flex: 1; height: 6px; background: var(--color-border-tertiary);
+    border-radius: 3px; overflow: hidden;
+  }
+  .meter-fill {
+    height: 100%; border-radius: 3px;
+    background: #4ab8d4; width: 0%; transition: width 60ms linear;
+  }
+  .meter-fill.warn { background: #d4a84a; }
+  .meter-fill.clip { background: #c85050; }
+  .meter-val {
+    font-size: 12px; font-family: var(--font-mono);
+    color: var(--color-text-secondary); width: 90px; text-align: right; flex-shrink: 0;
+  }
+
+  /* two detection panels: raw YIN and median-filtered */
+  .detection-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  .note-display {
+    border: 0.5px solid var(--color-border-secondary);
+    padding: 12px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .note-display.filtered {
+    border-color: #4ab8d4;
+  }
+  .nd-header {
+    font-size: 10px; color: var(--color-text-tertiary);
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .nd-header.teal { color: #4ab8d4; }
+  .nd-val {
+    font-size: 40px; font-weight: 500;
+    color: var(--color-text-primary);
+    font-family: var(--font-mono); line-height: 1;
+  }
+  .nd-val.dim { color: var(--color-text-tertiary); }
+  .nd-sub { font-size: 11px; color: var(--color-text-tertiary); }
+  .conf-bar {
+    height: 3px; border-radius: 2px;
+    background: var(--color-border-tertiary); overflow: hidden;
+  }
+  .conf-fill { height: 100%; border-radius: 2px; width: 0%; }
+  .conf-fill.low  { background: #c85050; }
+  .conf-fill.mid  { background: #d4a84a; }
+  .conf-fill.high { background: #4ab8d4; }
+
+  /* median buffer visualiser */
+  .median-buf {
+    display: flex; gap: 3px; align-items: center;
+  }
+  .buf-cell {
+    flex: 1; height: 20px; border-radius: 2px;
+    background: var(--color-border-tertiary);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-family: var(--font-mono);
+    color: var(--color-text-tertiary);
+    transition: background 100ms;
+  }
+  .buf-cell.filled { background: rgba(74,184,212,0.2); color: #4ab8d4; }
+  .buf-cell.winner { background: #4ab8d4; color: #000; font-weight: 500; }
+
+  canvas {
+    width: 100%; height: 70px;
+    border: 0.5px solid var(--color-border-tertiary);
+    display: block; background: var(--color-background-secondary);
+  }
+
+  .log {
+    font-size: 11px; font-family: var(--font-mono);
+    height: 120px; overflow-y: auto;
+    border: 0.5px solid var(--color-border-tertiary);
+    padding: 6px 8px; background: var(--color-background-secondary);
+  }
+  .log-line { margin-bottom: 2px; color: var(--color-text-secondary); }
+  .log-line.good { color: #4ab8d4; }
+  .log-line.warn { color: #d4a84a; }
+  .log-line.bad  { color: #c85050; }
+  .version-tag {
+    font-size: 11px; color: var(--color-text-tertiary); text-align: right;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>Woodshed — Pitch Diagnostic · Final · YIN + Median Filter + 2-pole HPF</h1>
+
+  <button class="btn" id="startBtn" onclick="toggleMic()">
+    <span class="status-dot" id="statusDot"></span>Start Mic
+  </button>
+
+  <!-- NEW: median filter + steeper HPF -->
+  <div class="new-section">
+    <div class="new-label">⬆ New in v4 — Median filter (kills octave jitter) + steeper HPF</div>
+
+    <div class="setting-block">
+      <div class="setting-label">median window size (frames) — larger = more stable, slightly slower</div>
+      <div class="setting-row">
+        <input type="range" min="3" max="11" value="5" step="2"
+          id="medianSlider" oninput="updateMedian()">
+        <span class="setting-val" id="medianVal">5 frames</span>
+      </div>
+    </div>
+
+    <div class="setting-block">
+      <div class="setting-label">HPF cutoff (Hz) — raised default to 70Hz, steeper 2-pole filter</div>
+      <div class="setting-row">
+        <input type="range" min="40" max="150" value="70" step="5"
+          id="hpfSlider" oninput="updateHPF()">
+        <span class="setting-val" id="hpfVal">70 Hz</span>
+      </div>
+    </div>
+
+    <div class="setting-block">
+      <div class="setting-label">pre-gain</div>
+      <div class="setting-row">
+        <input type="range" min="1" max="20" value="12" step="0.5"
+          id="gainSlider" oninput="updateGain()">
+        <span class="setting-val" id="gainVal">12×</span>
+      </div>
+    </div>
+
+    <div class="setting-block">
+      <div class="setting-label">noise gate (dB)</div>
+      <div class="setting-row">
+        <input type="range" min="-80" max="-10" value="-60" step="1"
+          id="gateSlider" oninput="updateSettings()">
+        <span class="setting-val" id="gateSliderVal">-60</span>
+      </div>
+    </div>
+
+    <div class="new-sub">
+      Median filter: collects the last N frequency readings, picks the middle value.
+      Single-frame octave jumps (B2→B3→B2) get outvoted — the stable note wins.
+      The buffer visualiser below shows each frame and highlights the median winner.
+    </div>
+  </div>
+
+  <!-- other settings -->
+  <div>
+    <div class="label">other settings</div>
+    <div class="settings">
+      <div class="setting-block">
+        <div class="setting-label">min confidence (%)</div>
+        <div class="setting-row">
+          <input type="range" min="10" max="95" value="70" step="1"
+            id="confSlider" oninput="updateSettings()">
+          <span class="setting-val" id="confSliderVal">70</span>
+        </div>
+      </div>
+      <div class="setting-block">
+        <div class="setting-label">YIN threshold</div>
+        <div class="setting-row">
+          <input type="range" min="5" max="40" value="15" step="1"
+            id="yinSlider" oninput="updateSettings()">
+          <span class="setting-val" id="yinSliderVal">0.15</span>
+        </div>
+      </div>
+      <div class="setting-block">
+        <div class="setting-label">buffer size</div>
+        <div class="setting-row">
+          <select id="bufSelect" onchange="updateSettings()">
+            <option value="1024">1024</option>
+            <option value="2048" selected>2048</option>
+            <option value="4096">4096</option>
+            <option value="8192">8192</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- meters -->
+  <div>
+    <div class="label">meters</div>
+    <div class="meters">
+      <div class="meter-row">
+        <span class="meter-label">raw mic</span>
+        <div class="meter-track"><div class="meter-fill" id="rawFill"></div></div>
+        <span class="meter-val" id="rawVal">— dB</span>
+      </div>
+      <div class="meter-row">
+        <span class="meter-label">post HPF+gain</span>
+        <div class="meter-track"><div class="meter-fill" id="gainedFill"></div></div>
+        <span class="meter-val" id="gainedVal">— dB</span>
+      </div>
+      <div class="meter-row">
+        <span class="meter-label">YIN clarity</span>
+        <div class="meter-track"><div class="meter-fill" id="clarFill"></div></div>
+        <span class="meter-val" id="clarVal">—%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- side by side: raw YIN vs median filtered -->
+  <div>
+    <div class="label">raw YIN vs median filtered — compare side by side</div>
+    <div class="detection-row">
+      <div class="note-display">
+        <div class="nd-header">raw YIN (jittery)</div>
+        <div class="nd-val dim" id="rawNote">—</div>
+        <div class="nd-sub" id="rawSub">waiting</div>
+        <div class="conf-bar"><div class="conf-fill" id="rawConf"></div></div>
+      </div>
+      <div class="note-display filtered">
+        <div class="nd-header teal">median filtered (stable)</div>
+        <div class="nd-val dim" id="filtNote">—</div>
+        <div class="nd-sub" id="filtSub">waiting</div>
+        <div class="conf-bar"><div class="conf-fill" id="filtConf"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- median buffer visualiser -->
+  <div>
+    <div class="label">median buffer — each cell = one YIN frame</div>
+    <div class="median-buf" id="medianBuf"></div>
+  </div>
+
+  <div>
+    <div class="label">waveform (post HPF + gain)</div>
+    <canvas id="waveCanvas"></canvas>
+  </div>
+
+  <div>
+    <div class="label">detection log (filtered output only)</div>
+    <div class="log" id="logEl"></div>
+  </div>
+
+  <div class="version-tag">pitch diagnostic final · tuned settings: HPF 70Hz 2-pole · gain 12x · median 5 frames · gate -60dB</div>
+</div>
+
+<script>
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const MIN_FREQ   = 70;
+const MAX_FREQ   = 1400;
+
+let PRE_GAIN       = 12;
+let HPF_FREQ       = 70;
+let NOISE_GATE_DB  = -60;
+let MIN_CONFIDENCE = 0.70;
+let YIN_THRESHOLD  = 0.15;
+let BUF_SIZE       = 2048;
+let MEDIAN_SIZE    = 5;  // must be odd
+
+// Median frequency buffer
+let freqBuffer = [];
+
+let audioCtx    = null;
+let analyser    = null;
+let rawAnalyser = null;
+let gainNode    = null;
+let hpfNode1    = null; // two cascaded HPF nodes = 2-pole = steeper rolloff
+let hpfNode2    = null;
+let micStream   = null;
+let rafId       = null;
+let isRunning   = false;
+
+// UI
+const startBtn   = document.getElementById('startBtn');
+const rawFill    = document.getElementById('rawFill');
+const rawVal     = document.getElementById('rawVal');
+const gainedFill = document.getElementById('gainedFill');
+const gainedVal  = document.getElementById('gainedVal');
+const clarFill   = document.getElementById('clarFill');
+const clarVal    = document.getElementById('clarVal');
+const rawNote    = document.getElementById('rawNote');
+const rawSub     = document.getElementById('rawSub');
+const rawConf    = document.getElementById('rawConf');
+const filtNote   = document.getElementById('filtNote');
+const filtSub    = document.getElementById('filtSub');
+const filtConf   = document.getElementById('filtConf');
+const waveCanvas = document.getElementById('waveCanvas');
+const ctx2d      = waveCanvas.getContext('2d');
+const logEl      = document.getElementById('logEl');
+const medianBuf  = document.getElementById('medianBuf');
+
+// ── SETTINGS ──
+function updateGain() {
+  PRE_GAIN = parseFloat(document.getElementById('gainSlider').value);
+  document.getElementById('gainVal').textContent = PRE_GAIN + '×';
+  if (gainNode) gainNode.gain.value = PRE_GAIN;
+}
+function updateHPF() {
+  HPF_FREQ = parseInt(document.getElementById('hpfSlider').value);
+  document.getElementById('hpfVal').textContent = HPF_FREQ + ' Hz';
+  if (hpfNode1) { hpfNode1.frequency.value = HPF_FREQ; hpfNode2.frequency.value = HPF_FREQ; }
+}
+function updateMedian() {
+  MEDIAN_SIZE = parseInt(document.getElementById('medianSlider').value);
+  // keep odd
+  if (MEDIAN_SIZE % 2 === 0) MEDIAN_SIZE++;
+  document.getElementById('medianVal').textContent = MEDIAN_SIZE + ' frames';
+  freqBuffer = [];
+  buildMedianUI();
+}
+function updateSettings() {
+  NOISE_GATE_DB  = parseInt(document.getElementById('gateSlider').value);
+  MIN_CONFIDENCE = parseInt(document.getElementById('confSlider').value) / 100;
+  YIN_THRESHOLD  = parseInt(document.getElementById('yinSlider').value) / 100;
+  BUF_SIZE       = parseInt(document.getElementById('bufSelect').value);
+  document.getElementById('gateSliderVal').textContent = NOISE_GATE_DB;
+  document.getElementById('confSliderVal').textContent = Math.round(MIN_CONFIDENCE * 100);
+  document.getElementById('yinSliderVal').textContent  = YIN_THRESHOLD.toFixed(2);
+  if (analyser) analyser.fftSize = BUF_SIZE;
+}
+
+function buildMedianUI() {
+  medianBuf.innerHTML = '';
+  for (let i = 0; i < MEDIAN_SIZE; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'buf-cell';
+    cell.id = 'mcell-' + i;
+    cell.textContent = '—';
+    medianBuf.appendChild(cell);
+  }
+}
+
+// ── NOTE MATH ──
+function freqToNote(freq) {
+  if (!freq || freq < 20) return null;
+  const midi    = 12 * Math.log2(freq / 440) + 69;
+  const rounded = Math.round(midi);
+  const cents   = Math.round((midi - rounded) * 100);
+  const octave  = Math.floor(rounded / 12) - 1;
+  const name    = NOTE_NAMES[((rounded % 12) + 12) % 12];
+  return { name, octave, cents, fullName: name + octave, midi: rounded };
+}
+
+// ── MEDIAN FILTER ──
+// Operates on MIDI note numbers (integers) rather than Hz
+// This means B2(47) and B3(59) are clearly separated — no ambiguity
+function medianMidi(buffer) {
+  if (buffer.length === 0) return null;
+  const sorted = [...buffer].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
+}
+
+// ── YIN ──
+function yin(buffer, sampleRate) {
+  const N     = buffer.length;
+  const halfN = Math.floor(N / 2);
+  const diff  = new Float32Array(halfN);
+
+  for (let tau = 1; tau < halfN; tau++) {
+    for (let i = 0; i < halfN; i++) {
+      const d = buffer[i] - buffer[i + tau];
+      diff[tau] += d * d;
+    }
+  }
+
+  const cmnd = new Float32Array(halfN);
+  cmnd[0] = 1;
+  let runningSum = 0;
+  for (let tau = 1; tau < halfN; tau++) {
+    runningSum += diff[tau];
+    cmnd[tau] = runningSum === 0 ? 0 : diff[tau] * tau / runningSum;
+  }
+
+  let tau = 2;
+  while (tau < halfN) {
+    if (cmnd[tau] < YIN_THRESHOLD) {
+      while (tau + 1 < halfN && cmnd[tau + 1] < cmnd[tau]) tau++;
+      break;
+    }
+    tau++;
+  }
+  if (tau === halfN || cmnd[tau] >= YIN_THRESHOLD) return null;
+
+  const x0 = tau > 0 ? tau - 1 : tau;
+  const x2 = tau < halfN - 1 ? tau + 1 : tau;
+  let betterTau;
+  if (x0 === tau) {
+    betterTau = cmnd[tau] <= cmnd[x2] ? tau : x2;
+  } else if (x2 === tau) {
+    betterTau = cmnd[tau] <= cmnd[x0] ? tau : x0;
+  } else {
+    const s0 = cmnd[x0], s1 = cmnd[tau], s2 = cmnd[x2];
+    betterTau = tau + (s2 - s0) / (2 * (2 * s1 - s2 - s0));
+  }
+  return { freq: sampleRate / betterTau, confidence: 1 - cmnd[tau] };
+}
+
+// ── LOG ──
+function addLog(msg, cls='') {
+  const ts  = new Date().toLocaleTimeString('en',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const div = document.createElement('div');
+  div.className = 'log-line ' + cls;
+  div.textContent = ts + '  ' + msg;
+  logEl.insertBefore(div, logEl.firstChild);
+  while (logEl.children.length > 60) logEl.removeChild(logEl.lastChild);
+}
+
+// ── MAIN LOOP ──
+let lastFilteredNote = null;
+
+function loop() {
+  if (!isRunning) return;
+  rafId = requestAnimationFrame(loop);
+
+  // Raw level
+  const rawData = new Float32Array(rawAnalyser.fftSize);
+  rawAnalyser.getFloatTimeDomainData(rawData);
+  let rawRms = 0;
+  for (let i = 0; i < rawData.length; i++) rawRms += rawData[i] * rawData[i];
+  rawRms = Math.sqrt(rawRms / rawData.length);
+  const rawDb = rawRms > 0 ? 20 * Math.log10(rawRms) : -100;
+  rawFill.style.width = Math.max(0, Math.min(100, (rawDb + 80) / 80 * 100)) + '%';
+  rawVal.textContent  = rawDb.toFixed(1) + ' dB';
+
+  // Post HPF+gain
+  const timeData = new Float32Array(analyser.fftSize);
+  analyser.getFloatTimeDomainData(timeData);
+  let gainedRms = 0;
+  for (let i = 0; i < timeData.length; i++) gainedRms += timeData[i] * timeData[i];
+  gainedRms = Math.sqrt(gainedRms / timeData.length);
+  const gainedDb = gainedRms > 0 ? 20 * Math.log10(gainedRms) : -100;
+  gainedFill.style.width = Math.max(0, Math.min(100, (gainedDb + 80) / 80 * 100)) + '%';
+  gainedVal.textContent  = gainedDb.toFixed(1) + ' dB';
+  gainedFill.className   = 'meter-fill' + (gainedDb > -1 ? ' clip' : '');
+
+  // Waveform
+  const W = waveCanvas.offsetWidth * (window.devicePixelRatio || 1);
+  const H = waveCanvas.offsetHeight * (window.devicePixelRatio || 1);
+  if (waveCanvas.width !== W || waveCanvas.height !== H) { waveCanvas.width = W; waveCanvas.height = H; }
+  ctx2d.clearRect(0, 0, W, H);
+  ctx2d.strokeStyle = rawDb > NOISE_GATE_DB ? '#4ab8d4' : 'rgba(128,128,128,0.25)';
+  ctx2d.lineWidth = 1.5;
+  ctx2d.beginPath();
+  for (let i = 0; i < timeData.length; i++) {
+    const x = i * W / timeData.length;
+    const y = H / 2 + Math.max(-1, Math.min(1, timeData[i])) * H * 0.45;
+    i === 0 ? ctx2d.moveTo(x, y) : ctx2d.lineTo(x, y);
+  }
+  ctx2d.stroke();
+
+  // Below gate — clear buffer
+  if (rawDb < NOISE_GATE_DB) {
+    rawNote.textContent  = '—';
+    rawNote.className    = 'nd-val dim';
+    rawSub.textContent   = `below gate (${NOISE_GATE_DB} dB)`;
+    filtNote.textContent = '—';
+    filtNote.className   = 'nd-val dim';
+    filtSub.textContent  = 'waiting';
+    freqBuffer = [];
+    updateMedianUI([], null);
+    return;
+  }
+
+  // YIN
+  const result = yin(timeData, audioCtx.sampleRate);
+  const clarPct = result ? Math.round(result.confidence * 100) : 0;
+  clarFill.style.width = clarPct + '%';
+  clarVal.textContent  = clarPct + '%';
+  clarFill.className   = 'meter-fill ' + (clarPct > 80 ? '' : 'warn');
+
+  // ── RAW panel ──
+  if (!result || result.freq < MIN_FREQ || result.freq > MAX_FREQ || result.confidence < MIN_CONFIDENCE) {
+    rawNote.textContent = '—';
+    rawNote.className   = 'nd-val dim';
+    rawSub.textContent  = result
+      ? (result.freq < MIN_FREQ || result.freq > MAX_FREQ
+          ? `out of range: ${result.freq.toFixed(0)}Hz`
+          : `low conf: ${clarPct}%`)
+      : 'no pitch';
+    rawConf.style.width = '0%';
+    // push null into median buffer to represent no-detection frames
+    // (we only push valid detections)
+    return;
+  }
+
+  const rawNoteObj = freqToNote(result.freq);
+  if (!rawNoteObj) return;
+
+  rawNote.textContent  = rawNoteObj.fullName;
+  rawNote.className    = 'nd-val';
+  rawSub.textContent   = `${result.freq.toFixed(1)}Hz · ${clarPct}%`;
+  rawConf.style.width  = clarPct + '%';
+  rawConf.className    = 'conf-fill ' + (clarPct > 80 ? 'high' : clarPct > 50 ? 'mid' : 'low');
+
+  // ── MEDIAN FILTER ──
+  // Push MIDI note number (integer) — works in semitone space, not Hz
+  // This means octave jitter shows up as ±12 semitones, easy to median out
+  freqBuffer.push(rawNoteObj.midi);
+  if (freqBuffer.length > MEDIAN_SIZE) freqBuffer.shift();
+
+  updateMedianUI(freqBuffer, freqBuffer.length >= MEDIAN_SIZE ? medianMidi(freqBuffer) : null);
+
+  if (freqBuffer.length < MEDIAN_SIZE) {
+    filtNote.textContent = '…';
+    filtNote.className   = 'nd-val dim';
+    filtSub.textContent  = `filling buffer (${freqBuffer.length}/${MEDIAN_SIZE})`;
+    return;
+  }
+
+  const medianMidiVal = medianMidi(freqBuffer);
+  // Convert median MIDI back to freq for cents calculation
+  const medianFreq    = 440 * Math.pow(2, (medianMidiVal - 69) / 12);
+  const medianNoteObj = freqToNote(medianFreq);
+  if (!medianNoteObj) return;
+
+  filtNote.textContent = medianNoteObj.fullName;
+  filtNote.className   = 'nd-val';
+  filtSub.textContent  = `${medianFreq.toFixed(1)}Hz · median of ${MEDIAN_SIZE} frames`;
+  filtConf.style.width = clarPct + '%';
+  filtConf.className   = 'conf-fill ' + (clarPct > 80 ? 'high' : 'mid');
+
+  // Log filtered output only when it changes
+  if (medianNoteObj.fullName !== lastFilteredNote) {
+    addLog(`✓ ${medianNoteObj.fullName}  (raw was: ${rawNoteObj.fullName})  ${medianFreq.toFixed(1)}Hz`,
+      medianNoteObj.fullName === rawNoteObj.fullName ? 'good' : 'warn');
+    lastFilteredNote = medianNoteObj.fullName;
+  }
+}
+
+function updateMedianUI(buffer, winnerMidi) {
+  for (let i = 0; i < MEDIAN_SIZE; i++) {
+    const cell = document.getElementById('mcell-' + i);
+    if (!cell) continue;
+    if (i < buffer.length) {
+      const n = freqToNote(440 * Math.pow(2, (buffer[i] - 69) / 12));
+      const isWinner = winnerMidi !== null && buffer[i] === winnerMidi;
+      cell.className   = 'buf-cell ' + (isWinner ? 'winner' : 'filled');
+      cell.textContent = n ? n.fullName : '?';
+    } else {
+      cell.className   = 'buf-cell';
+      cell.textContent = '—';
+    }
+  }
+}
+
+// ── MIC ──
+async function toggleMic() {
+  if (isRunning) {
+    isRunning = false;
+    cancelAnimationFrame(rafId);
+    if (micStream) micStream.getTracks().forEach(t => t.stop());
+    if (audioCtx) { audioCtx.close(); audioCtx = null; }
+    micStream = null;
+    startBtn.innerHTML = '<span class="status-dot"></span> Start Mic';
+    startBtn.classList.remove('active');
+    addLog('stopped', 'warn');
+    return;
+  }
+
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl:  false,
+        sampleRate: 44100,
+      }
+    });
+
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
+    const source = audioCtx.createMediaStreamSource(micStream);
+
+    // Raw analyser (pre everything)
+    rawAnalyser = audioCtx.createAnalyser();
+    rawAnalyser.fftSize = 2048;
+    rawAnalyser.smoothingTimeConstant = 0;
+    source.connect(rawAnalyser);
+
+    // Two cascaded HPF nodes = 2-pole = 12dB/oct rolloff (steeper than v3's single pole)
+    hpfNode1 = audioCtx.createBiquadFilter();
+    hpfNode1.type = 'highpass';
+    hpfNode1.frequency.value = HPF_FREQ;
+    hpfNode1.Q.value = 0.707;
+
+    hpfNode2 = audioCtx.createBiquadFilter();
+    hpfNode2.type = 'highpass';
+    hpfNode2.frequency.value = HPF_FREQ;
+    hpfNode2.Q.value = 0.707;
+
+    gainNode = audioCtx.createGain();
+    gainNode.gain.value = PRE_GAIN;
+
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = BUF_SIZE;
+    analyser.smoothingTimeConstant = 0;
+
+    // Chain: source → HPF1 → HPF2 → gain → analyser
+    source.connect(hpfNode1);
+    hpfNode1.connect(hpfNode2);
+    hpfNode2.connect(gainNode);
+    gainNode.connect(analyser);
+
+    isRunning = true;
+    freqBuffer = [];
+    startBtn.innerHTML = '<span class="status-dot on"></span> Stop Mic';
+    startBtn.classList.add('active');
+    addLog(`started · HPF:${HPF_FREQ}Hz (2-pole) · gain:${PRE_GAIN}× · median:${MEDIAN_SIZE} frames`, 'good');
+    addLog('► play a note — watch raw vs filtered side by side');
+    loop();
+
+  } catch(e) {
+    addLog(`ERROR: ${e.message}`, 'bad');
+  }
+}
+
+// init
+buildMedianUI();
+updateSettings();
+</script>
+</body>
+</html>
