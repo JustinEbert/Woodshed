@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "postinstall": "npm run generate:icons",
     "prebuild": "npm run generate:icons",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
