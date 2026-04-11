@@ -11,12 +11,6 @@ The AI trainer IS the product — observes, adapts, guides via deliberate practi
 - Design tokens: `src/index.css`
 - Live: https://justinebert.github.io/Woodshed/
 
-## tech stack
-
-React + Vite + Tailwind + shadcn/ui. GitHub Pages PWA, auto-deploys from main.
-Web Audio API (local). Web Speech API (local). Claude API (claude-sonnet-4-20250514, user-supplied key).
-Vitest for tests (`npm test`). Local JSON storage.
-
 ## architecture
 
 - **Exercise view owns the canvas.** App shell never imports exercise components.
