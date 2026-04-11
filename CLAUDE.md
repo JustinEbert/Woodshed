@@ -1,15 +1,9 @@
 # Woodshed
 
-AI-powered practice trainer for musicians. Guitar first, instrument-agnostic by design.
-The AI trainer IS the product — observes, adapts, guides via deliberate practice science.
-
 ## references
 
-- Spec (source of truth): `docs/woodshed_spec_v0.2.md`
-- Wireframe: `docs/woodshed_wireframe_v0.2.md`
-- Design prototypes: `docs/prototypes/` — match exactly when implementing
-- Design tokens: `src/index.css`
-- Live: https://justinebert.github.io/Woodshed/
+- `docs/woodshed_spec_v0.2.md` is the source of truth for all decisions.
+- `docs/prototypes/` are visual specs — match exactly when implementing.
 
 ## architecture
 
