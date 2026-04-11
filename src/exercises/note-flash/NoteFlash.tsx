@@ -117,7 +117,7 @@ export default function NoteFlash() {
         onCorrect={handleCorrect}
       />
 
-      {/* Permission / status line */}
+      {/* Permission / status line (#38) */}
       <div
         style={{
           fontFamily: 'var(--font-sans)',
@@ -125,12 +125,13 @@ export default function NoteFlash() {
           letterSpacing: '0.05em',
           color: 'var(--color-text-tertiary)',
           textAlign: 'center',
-          minHeight: 16,
+          lineHeight: 1.4,
         }}
       >
-        {permission === 'prompt' && 'requesting microphone…'}
+        {permission === 'prompt' && 'allow microphone access to continue'}
         {permission === 'granted' && listening && 'listening'}
-        {permission === 'denied' && 'microphone required for pitch detection'}
+        {permission === 'denied' &&
+          'Microphone blocked. Enable in Chrome settings → Site settings → Microphone.'}
         {permission === 'error' && 'microphone unavailable'}
       </div>
 

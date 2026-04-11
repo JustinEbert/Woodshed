@@ -72,6 +72,14 @@ export function usePitchDetection(
   const [listening, setListening] = useState(false)
   const [permission, setPermission] = useState<PermissionState>('prompt')
 
+  // Mirror permission state in a ref so async callbacks (start, change
+  // handler) always see the latest value without stale closures.
+  const permissionRef  = useRef<PermissionState>('prompt')
+  const updatePermission = useCallback((state: PermissionState) => {
+    permissionRef.current = state
+    setPermission(state)
+  }, [])
+
   // Stash latest callback in ref to avoid stale closures in polling loop
   const onNoteRef = useRef(options.onNote)
   useEffect(() => { onNoteRef.current = options.onNote }, [options.onNote])
@@ -96,6 +104,11 @@ export function usePitchDetection(
   // its generation and aborts at every async boundary if it has gone stale.
   // This survives React StrictMode's mount → cleanup → mount cycle.
   const generationRef  = useRef(0)
+
+  // Permissions API change listener — stable ref so we can subscribe once
+  // and the handler always calls the latest start/cleanup.
+  const permStatusRef  = useRef<PermissionStatus | null>(null)
+  const startRef       = useRef<() => Promise<void>>()
 
   // ── Cleanup ────────────────────────────────────────────────────────────
 
@@ -162,18 +175,86 @@ export function usePitchDetection(
     rafRef.current = requestAnimationFrame(poll)
   }, [])
 
+  // ── Permissions API integration (#38) ───────────────────────────────
+  //
+  // Before calling getUserMedia, query the Permissions API to learn
+  // the current microphone permission state. This lets us:
+  //   - Skip the "requesting" flash when permission is already granted
+  //   - Show recovery guidance immediately when permission is denied
+  //     (without wasting a getUserMedia call that would just fail)
+  //   - Auto-recover if the user re-enables permission in Chrome
+  //     settings while the app is open (via the change listener)
+  //
+  // Falls back to the old try-and-catch flow if the Permissions API
+  // is unavailable (not expected on Android Chrome, but safe).
+
+  const subscribeToPermissionChanges = useCallback(
+    (status: PermissionStatus) => {
+      if (permStatusRef.current) return // already subscribed
+      permStatusRef.current = status
+      status.addEventListener('change', () => {
+        const s = permStatusRef.current
+        if (!s) return
+        if (s.state === 'granted') {
+          updatePermission('granted')
+          // Auto-start if not already listening
+          if (!listeningRef.current) startRef.current?.()
+        } else if (s.state === 'denied') {
+          updatePermission('denied')
+          cleanup()
+        } else {
+          updatePermission('prompt')
+        }
+      })
+    },
+    [updatePermission, cleanup],
+  )
+
   // ── Start ──────────────────────────────────────────────────────────────
 
   const start = useCallback(async () => {
     if (listeningRef.current) return
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      setPermission('error')
+      updatePermission('error')
       return
     }
 
     const myGeneration = generationRef.current
 
+    // ── 1. Query current permission state via Permissions API ─────────
+    if (navigator.permissions) {
+      try {
+        const status = await navigator.permissions.query(
+          { name: 'microphone' as PermissionName },
+        )
+        if (myGeneration !== generationRef.current) return
+
+        // Subscribe to future changes (idempotent — only subscribes once)
+        subscribeToPermissionChanges(status)
+
+        if (status.state === 'denied') {
+          // Don't waste a getUserMedia call — it would just throw
+          // NotAllowedError. Show recovery guidance immediately.
+          updatePermission('denied')
+          return
+        }
+
+        if (status.state === 'granted') {
+          // Set granted immediately so the component never flashes
+          // "allow microphone access" on subsequent visits.
+          updatePermission('granted')
+        }
+        // 'prompt' — leave the state as 'prompt'; the component shows
+        // the "allow microphone access" message while the OS dialog
+        // is open (getUserMedia below triggers the dialog).
+      } catch {
+        // Permissions API not supported for 'microphone' — fall through
+        // to the old try-and-catch flow via getUserMedia.
+      }
+    }
+
+    // ── 2. Acquire microphone ────────────────────────────────────────
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -191,7 +272,7 @@ export function usePitchDetection(
       }
 
       streamRef.current = stream
-      setPermission('granted')
+      updatePermission('granted')
 
       const audioCtx = new AudioContext({ sampleRate: SAMPLE_RATE })
       audioCtxRef.current = audioCtx
@@ -253,17 +334,26 @@ export function usePitchDetection(
       rafRef.current = requestAnimationFrame(poll)
     } catch (err) {
       if (err instanceof DOMException && err.name === 'NotAllowedError') {
-        setPermission('denied')
+        updatePermission('denied')
       } else {
-        setPermission('error')
+        updatePermission('error')
       }
     }
-  }, [poll])
+  }, [poll, updatePermission, subscribeToPermissionChanges])
+
+  // Keep startRef in sync so the permission change handler can call
+  // the latest version of start() without a stale closure.
+  useEffect(() => { startRef.current = start }, [start])
 
   const stop = useCallback(() => { cleanup() }, [cleanup])
 
   useEffect(() => {
-    return () => { cleanup() }
+    return () => {
+      cleanup()
+      // Clear the permission listener ref so stale change events
+      // from a prior mount cycle are ignored.
+      permStatusRef.current = null
+    }
   }, [cleanup])
 
   return { listening, permission, start, stop }
