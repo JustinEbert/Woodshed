@@ -4,6 +4,7 @@
 
 - `docs/woodshed_spec_v0.2.md` is the source of truth for all decisions.
 - `docs/prototypes/` are visual specs — match exactly when implementing.
+- **Epic preflight:** Run `/epic-preflight` before starting any epic. Epics are NOT READY until all `design-gate` stories are resolved. Behavioral design (what it does) before visual design (how it looks) before implementation.
 
 ## architecture
 

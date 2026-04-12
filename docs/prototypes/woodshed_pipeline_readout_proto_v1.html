@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Woodshed — Pipeline Readout Prototype</title>
+<style>
+  :root {
+    --color-background-primary: #ffffff;
+    --color-background-secondary: #f4f4f2;
+    --color-text-primary: #1a1a1a;
+    --color-text-secondary: #555550;
+    --color-text-tertiary: #99998f;
+    --color-border-secondary: rgba(0,0,0,0.3);
+    --color-border-tertiary: rgba(0,0,0,0.12);
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'Courier New', Courier, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-background-primary: #1a1a1a;
+      --color-background-secondary: #252525;
+      --color-text-primary: #f0f0ec;
+      --color-text-secondary: #aaaaaa;
+      --color-text-tertiary: #666660;
+      --color-border-secondary: rgba(255,255,255,0.3);
+      --color-border-tertiary: rgba(255,255,255,0.12);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--color-background-primary);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    padding: 2rem;
+  }
+  .page {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  .version-tag {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    text-align: right;
+    margin-top: 8px;
+  }
+  .proto-note {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    border: 0.5px solid var(--color-border-tertiary);
+    padding: 8px 10px;
+    line-height: 1.5;
+  }
+  .proto-note strong { color: var(--color-text-secondary); font-weight: 500; }
+
+  /* ── CARD ── */
+  .card {
+    position: relative;
+    height: 120px;
+    overflow: hidden;
+  }
+  .centered-unit {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+  .string-strip {
+    position: relative;
+    width: 48px;
+    flex-shrink: 0;
+  }
+  .strip-str { position: absolute; left: 0; right: 0; }
+  .num-el {
+    font-family: var(--font-sans);
+    font-size: 76px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    line-height: 1;
+    background: transparent;
+    display: block;
+    flex-shrink: 0;
+  }
+  @keyframes correctScale {
+    0%   { transform: scale(1);    color: var(--color-text-primary); }
+    40%  { transform: scale(1.10); color: #4ab8d4; }
+    100% { transform: scale(1);    color: var(--color-text-primary); }
+  }
+  .num-el.correct { animation: correctScale 200ms ease-out forwards; }
+
+  /* ── PIPELINE READOUT ──
+     IMPLEMENT THIS in production.
+     Sits directly below the card.
+     Pitch left (teal), voice right (amber).
+  */
+  .pipeline-readout {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 2px;
+  }
+  .pipeline-item {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+  }
+  .pipeline-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-bottom: 1px;
+    opacity: 0.15; /* resting: barely visible */
+    /* transition set dynamically:
+       instant attack on signal arrival,
+       400ms ease-out fade on silence */
+  }
+  .pipeline-dot.teal  { background: #4ab8d4; }
+  .pipeline-dot.amber { background: #d4a84a; }
+  .pipeline-key {
+    font-size: 10px;
+    color: var(--color-text-tertiary);
+    letter-spacing: 0.03em;
+    font-family: var(--font-mono);
+  }
+  .pipeline-val {
+    font-size: 13px;
+    font-family: var(--font-mono);
+    font-weight: 400;
+    transition: opacity 200ms ease-out;
+  }
+  .pipeline-val.teal  { color: #4ab8d4; opacity: 0.55; }
+  .pipeline-val.amber { color: #d4a84a; opacity: 0.55; }
+  .pipeline-val.empty { color: var(--color-text-tertiary); opacity: 0.25; }
+
+  /* ── PROTOTYPE-ONLY: simulation buttons ──
+     DO NOT IMPLEMENT in production.
+     In production, updatePitch() and updateVoice() are called
+     by usePitchDetection hook and handleVoice handler respectively.
+  */
+  .sim-section {
+    border: 0.5px solid var(--color-border-tertiary);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+    opacity: 0.7;
+  }
+  .sim-header {
+    font-size: 10px;
+    color: var(--color-text-tertiary);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .sim-label { font-size: 11px; color: var(--color-text-tertiary); }
+  .sim-row { display: flex; gap: 6px; }
+  .sim-btn {
+    flex: 1; padding: 8px 4px; font-size: 11px;
+    border-radius: 6px;
+    border: 0.5px solid var(--color-border-secondary);
+    background: var(--color-background-secondary);
+    color: var(--color-text-primary);
+    cursor: pointer; font-family: var(--font-sans); line-height: 1.3;
+  }
+  .sim-btn:active { transform: scale(0.97); }
+  .sim-btn.teal-btn   { border-color: rgba(74,184,212,0.35); color: #4ab8d4; }
+  .sim-btn.amber-btn  { border-color: rgba(212,168,74,0.35); color: #d4a84a; }
+  .sim-btn.correct-btn { border-color: rgba(74,184,212,0.6); color: #4ab8d4; font-weight:500; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="proto-note">
+    <strong>Prototype:</strong> pipeline readout component.<br>
+    <strong>Implement:</strong> the card, pipeline readout, and all JS functions below.<br>
+    <strong>Skip:</strong> the simulation buttons section — in production these are driven by
+    <code>usePitchDetection</code> and <code>handleVoice</code> directly.
+  </div>
+
+  <!-- ── IMPLEMENT: Flash Card ── -->
+  <div class="card">
+    <div class="centered-unit">
+      <div class="string-strip" id="strip"></div>
+      <span class="num-el" id="numEl">F#</span>
+    </div>
+  </div>
+
+  <!-- ── IMPLEMENT: Pipeline Readout ── -->
+  <div class="pipeline-readout">
+    <div class="pipeline-item">
+      <div class="pipeline-dot teal" id="pitchDot"></div>
+      <span class="pipeline-key">pitch</span>
+      <span class="pipeline-val empty" id="pitchVal">—</span>
+    </div>
+    <div class="pipeline-item">
+      <span class="pipeline-val empty" id="voiceVal">—</span>
+      <span class="pipeline-key">voice</span>
+      <div class="pipeline-dot amber" id="voiceDot"></div>
+    </div>
+  </div>
+
+  <!-- ── PROTOTYPE ONLY: Simulation buttons — DO NOT IMPLEMENT ── -->
+  <div class="sim-section">
+    <div class="sim-header">⚠ prototype only — simulation controls</div>
+
+    <div class="sim-label">pitch — hold to simulate (replace with usePitchDetection hook)</div>
+    <div class="sim-row">
+      <button class="sim-btn teal-btn"
+        onmousedown="startPitchSim('G2',0.85)"  onmouseup="stopPitchSim()" onmouseleave="stopPitchSim()"
+        ontouchstart="startPitchSim('G2',0.85)" ontouchend="stopPitchSim()">
+        hold: G2<br><small>strong</small>
+      </button>
+      <button class="sim-btn teal-btn"
+        onmousedown="startPitchSim('C#3',0.45)" onmouseup="stopPitchSim()" onmouseleave="stopPitchSim()"
+        ontouchstart="startPitchSim('C#3',0.45)"ontouchend="stopPitchSim()">
+        hold: C#3<br><small>quiet</small>
+      </button>
+      <button class="sim-btn teal-btn"
+        onmousedown="startPitchSim(null,0.35)"  onmouseup="stopPitchSim()" onmouseleave="stopPitchSim()"
+        ontouchstart="startPitchSim(null,0.35)" ontouchend="stopPitchSim()">
+        hold: noise<br><small>no note</small>
+      </button>
+      <button class="sim-btn teal-btn"
+        onmousedown="startPitchSim(null,0.0)"   onmouseup="stopPitchSim()" onmouseleave="stopPitchSim()"
+        ontouchstart="startPitchSim(null,0.0)"  ontouchend="stopPitchSim()">
+        hold: silent<br><small>no signal</small>
+      </button>
+    </div>
+
+    <div class="sim-label">voice — single event (replace with handleVoice onresult callback)</div>
+    <div class="sim-row">
+      <button class="sim-btn amber-btn" onclick="fireVoice('G#')">"gee sharp" → G#</button>
+      <button class="sim-btn amber-btn" onclick="fireVoice('3')">"three" → 3</button>
+      <button class="sim-btn amber-btn" onclick="fireVoice('B♭')">"bee flat" → B♭</button>
+    </div>
+
+    <div class="sim-row">
+      <button class="sim-btn correct-btn" onclick="doAdvance()">✓ correct — advance card</button>
+    </div>
+  </div>
+
+  <div class="version-tag">pipeline readout proto v1 · pitch dot + voice dot · 2s voice hold</div>
+</div>
+
+<script>
+// ── SEQUENCE (same as flash card proto) ──
+const fretSeq = [
+  {val:'F#',str:1},{val:'A',str:5},{val:'C',str:2},
+  {val:'E',str:5},{val:'G',str:3},{val:'B',str:1},
+  {val:'D',str:4},{val:'F',str:0},
+];
+const STRING_HEIGHTS = [1,1,1,1,1,2.5];
+const TEAL           = '#4ab8d4';
+const STRING_COLOR   = 'var(--color-border-secondary)';
+const STRING_SPACING = 14;
+
+let idx  = 0;
+let busy = false;
+
+const numEl    = document.getElementById('numEl');
+const strip    = document.getElementById('strip');
+const pitchDot = document.getElementById('pitchDot');
+const pitchVal = document.getElementById('pitchVal');
+const voiceDot = document.getElementById('voiceDot');
+const voiceVal = document.getElementById('voiceVal');
+
+let pitchSimInterval = null;
+let voiceHoldTimer   = null;
+let voiceFadeTimer   = null;
+
+const VOICE_HOLD_MS = 2000;
+
+// ── RENDER ──
+function renderStrip(activeStr) {
+  strip.style.height = (5 * STRING_SPACING) + 'px';
+  strip.innerHTML = '';
+  for (let i = 0; i < 6; i++) {
+    const d = document.createElement('div');
+    d.className = 'strip-str';
+    d.style.top        = (i * STRING_SPACING) + 'px';
+    d.style.height     = (i === activeStr ? 2.5 : STRING_HEIGHTS[i]) + 'px';
+    d.style.background = i === activeStr ? TEAL : STRING_COLOR;
+    strip.appendChild(d);
+  }
+}
+
+function renderCard() {
+  const item = fretSeq[idx];
+  numEl.textContent = item.val;
+  numEl.style.color = '';
+  requestAnimationFrame(() => renderStrip(item.str));
+  resetPitch();
+  resetVoice();
+}
+
+// ── IMPLEMENT: updatePitch ──
+// Called every ~46ms from usePitchDetection RAF loop.
+// note: string e.g. "G#2" | null (no confident detection above threshold)
+// level: 0.0–1.0 normalised amplitude from rawAnalyser RMS
+function updatePitch(note, level) {
+  // Dot: instant attack on signal, smooth fade on silence
+  pitchDot.style.transition = level > 0.05 ? 'opacity 0ms' : 'opacity 400ms ease-out';
+  pitchDot.style.opacity    = level > 0.05
+    ? String(Math.min(0.9, 0.2 + level * 0.9).toFixed(2))
+    : '0.15';
+
+  // Note text: update on confident detection only
+  if (note) {
+    pitchVal.textContent = note;
+    pitchVal.className   = 'pipeline-val teal';
+  } else if (level < 0.05) {
+    // True silence — clear note
+    pitchVal.textContent = '—';
+    pitchVal.className   = 'pipeline-val empty';
+  }
+  // Signal present but no confident note: keep last note shown
+}
+
+function resetPitch() {
+  pitchDot.style.transition = 'opacity 400ms ease-out';
+  pitchDot.style.opacity    = '0.15';
+  pitchVal.textContent      = '—';
+  pitchVal.className        = 'pipeline-val empty';
+}
+
+// ── IMPLEMENT: updateVoice ──
+// Called once per SpeechRecognition onresult event.
+// parsed: already-interpreted result from voice-vocabulary.ts
+//         e.g. "G#" (not "gee sharp"), "3" (not "three")
+// Also call with onspeechstart to brighten the dot before result fires.
+function updateVoice(parsed) {
+  // Cancel pending timers
+  if (voiceHoldTimer) { clearTimeout(voiceHoldTimer); voiceHoldTimer = null; }
+  if (voiceFadeTimer) { clearTimeout(voiceFadeTimer); voiceFadeTimer = null; }
+
+  // Dot: instant bright flash on receive
+  voiceDot.style.transition = 'opacity 0ms';
+  voiceDot.style.opacity    = '0.9';
+
+  // Text: show parsed result
+  voiceVal.textContent = parsed;
+  voiceVal.className   = 'pipeline-val amber';
+
+  // Dot fades after 300ms glow — text stays
+  voiceFadeTimer = setTimeout(() => {
+    voiceDot.style.transition = 'opacity 600ms ease-out';
+    voiceDot.style.opacity    = '0.15';
+  }, 300);
+
+  // Text clears after 2s unless replaced by new result
+  voiceHoldTimer = setTimeout(resetVoice, VOICE_HOLD_MS);
+}
+
+// ── IMPLEMENT: onSpeechStart ──
+// Call this from SpeechRecognition onspeechstart event.
+// Brightens the voice dot before the result fires,
+// so user sees feedback the moment they start speaking.
+function onSpeechStart() {
+  voiceDot.style.transition = 'opacity 100ms ease-out';
+  voiceDot.style.opacity    = '0.55';
+}
+
+function resetVoice() {
+  voiceVal.textContent      = '—';
+  voiceVal.className        = 'pipeline-val empty';
+  voiceDot.style.transition = 'opacity 400ms ease-out';
+  voiceDot.style.opacity    = '0.15';
+  voiceHoldTimer = null;
+}
+
+// ── IMPLEMENT: doAdvance ──
+// Called when either pipeline produces a correct match.
+// Resets readout and advances to next card.
+function doAdvance() {
+  if (busy) return;
+  busy = true;
+  stopPitchSim();
+  numEl.classList.remove('correct');
+  void numEl.offsetWidth;
+  numEl.classList.add('correct');
+  setTimeout(() => {
+    numEl.classList.remove('correct');
+    idx = (idx + 1) % fretSeq.length;
+    renderCard();
+    busy = false;
+  }, 220);
+}
+
+// ── PROTOTYPE ONLY: simulation helpers ──
+// These replace the real hook/handler calls for prototyping.
+// Do not implement in production.
+function startPitchSim(note, baseLevel) {
+  if (pitchSimInterval) clearInterval(pitchSimInterval);
+  const fire = () => {
+    const jitter = (Math.random() - 0.5) * 0.12;
+    updatePitch(note, Math.max(0, Math.min(1, baseLevel + jitter)));
+  };
+  fire();
+  pitchSimInterval = setInterval(fire, 46);
+}
+function stopPitchSim() {
+  if (pitchSimInterval) { clearInterval(pitchSimInterval); pitchSimInterval = null; }
+  resetPitch();
+}
+function fireVoice(parsed) { updateVoice(parsed); }
+
+// ── INIT ──
+renderCard();
+</script>
+</body>
+</html>

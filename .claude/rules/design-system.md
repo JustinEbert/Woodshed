@@ -13,7 +13,13 @@ If a prototype exists in `docs/prototypes/`, it is the visual spec — match exa
 
 ## design gate
 
-No UI story without a visual spec. No prototype = propose a story to create one first.
+Two gates must clear before a UI story is ready for implementation:
+
+1. **Behavioral spec exists.** What does the feature do in concrete scenarios? If the epic has a `design-gate` story for interaction scenarios, it must be resolved first. No building until "what it does" is defined with storyboard examples.
+2. **Visual spec exists.** No UI story without a prototype or visual spec. No prototype = propose a `design-gate` story to create one first.
+
+Both gates use the `design-gate` label in GitHub and block implementation stories via dependency.
+
 After implementation, verify: type scale, spacing scale, color tokens, 44px touch targets, animation timing.
 
 ## color tokens

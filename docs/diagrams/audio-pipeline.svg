@@ -1,0 +1,260 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1200" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="none" stroke="#888" stroke-width="1.2"/>
+    </marker>
+    <marker id="arrow-teal" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="none" stroke="#4ab8d4" stroke-width="1.2"/>
+    </marker>
+    <marker id="arrow-amber" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="none" stroke="#d4a84a" stroke-width="1.2"/>
+    </marker>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a1a1a"/>
+      <stop offset="100%" stop-color="#141414"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="960" height="1200" fill="url(#bg)" rx="12"/>
+
+  <!-- Title -->
+  <text x="480" y="40" text-anchor="middle" fill="#f0f0ec" font-size="16" font-weight="500">Woodshed Audio Pipeline — Note Flash Exercise</text>
+  <text x="480" y="60" text-anchor="middle" fill="#666660" font-size="11" letter-spacing="0.05em">PITCH DETECTION + SPEECH RECOGNITION → DUAL INPUT</text>
+
+  <!-- ═══ HARDWARE MIC ═══ -->
+  <rect x="340" y="85" width="280" height="48" rx="24" fill="none" stroke="#f0f0ec" stroke-width="1.5"/>
+  <circle cx="380" cy="109" r="8" fill="none" stroke="#f0f0ec" stroke-width="1.2"/>
+  <line x1="380" y1="101" x2="380" y2="105" stroke="#f0f0ec" stroke-width="1.2"/>
+  <text x="400" y="113" fill="#f0f0ec" font-size="14" font-weight="500">Hardware Microphone</text>
+
+  <!-- Split lines from mic -->
+  <line x1="410" y1="133" x2="260" y2="175" stroke="#888" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="550" y1="133" x2="700" y2="175" stroke="#888" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <!-- ═══ LEFT BRANCH: PITCH DETECTION ═══ -->
+
+  <!-- getUserMedia label -->
+  <text x="260" y="172" text-anchor="middle" fill="#4ab8d4" font-size="10" letter-spacing="0.04em">getUserMedia</text>
+  <text x="260" y="184" text-anchor="middle" fill="#666660" font-size="9">LOCAL · ON-DEVICE</text>
+
+  <!-- AudioContext -->
+  <rect x="160" y="198" width="200" height="36" rx="4" fill="#252525" stroke="#4ab8d4" stroke-width="0.75"/>
+  <text x="260" y="220" text-anchor="middle" fill="#4ab8d4" font-size="11" font-weight="500">AudioContext 44100 Hz</text>
+
+  <!-- Arrow -->
+  <line x1="260" y1="234" x2="260" y2="258" stroke="#4ab8d4" stroke-width="1" marker-end="url(#arrow-teal)"/>
+
+  <!-- MediaStreamSource -->
+  <rect x="175" y="262" width="170" height="30" rx="4" fill="#252525" stroke="#555" stroke-width="0.5"/>
+  <text x="260" y="281" text-anchor="middle" fill="#aaa" font-size="11">MediaStream Source</text>
+
+  <!-- Split to rawAnalyser and HPF chain -->
+  <line x1="220" y1="292" x2="160" y2="330" stroke="#4ab8d4" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-teal)"/>
+  <line x1="300" y1="292" x2="300" y2="330" stroke="#4ab8d4" stroke-width="1" marker-end="url(#arrow-teal)"/>
+
+  <!-- rawAnalyser (gate metering) -->
+  <rect x="80" y="334" width="140" height="44" rx="4" fill="#252525" stroke="#555" stroke-width="0.5"/>
+  <text x="150" y="352" text-anchor="middle" fill="#aaa" font-size="10">rawAnalyser</text>
+  <text x="150" y="367" text-anchor="middle" fill="#666660" font-size="9">gate metering · RMS dB</text>
+
+  <!-- Dashed line from rawAnalyser to gate check -->
+  <line x1="150" y1="378" x2="150" y2="530" stroke="#555" stroke-width="0.75" stroke-dasharray="3,4"/>
+  <text x="147" y="540" text-anchor="end" fill="#666660" font-size="9">rawDb</text>
+
+  <!-- HPF chain -->
+  <rect x="240" y="334" width="120" height="30" rx="4" fill="#252525" stroke="#555" stroke-width="0.5"/>
+  <text x="300" y="353" text-anchor="middle" fill="#aaa" font-size="10">HPF₁ 70 Hz</text>
+  <line x1="300" y1="364" x2="300" y2="378" stroke="#4ab8d4" stroke-width="1" marker-end="url(#arrow-teal)"/>
+
+  <rect x="240" y="382" width="120" height="30" rx="4" fill="#252525" stroke="#555" stroke-width="0.5"/>
+  <text x="300" y="401" text-anchor="middle" fill="#aaa" font-size="10">HPF₂ 70 Hz</text>
+  <text x="370" y="401" fill="#666660" font-size="8">12dB/oct</text>
+  <line x1="300" y1="412" x2="300" y2="426" stroke="#4ab8d4" stroke-width="1" marker-end="url(#arrow-teal)"/>
+
+  <rect x="250" y="430" width="100" height="30" rx="4" fill="#252525" stroke="#555" stroke-width="0.5"/>
+  <text x="300" y="449" text-anchor="middle" fill="#aaa" font-size="10">Gain 12×</text>
+  <line x1="300" y1="460" x2="300" y2="474" stroke="#4ab8d4" stroke-width="1" marker-end="url(#arrow-teal)"/>
+
+  <rect x="240" y="478" width="120" height="30" rx="4" fill="#252525" stroke="#555" stroke-width="0.5"/>
+  <text x="300" y="497" text-anchor="middle" fill="#aaa" font-size="10">analyser 2048</text>
+  <line x1="300" y1="508" x2="300" y2="530" stroke="#4ab8d4" stroke-width="1" marker-end="url(#arrow-teal)"/>
+
+  <!-- Pipeline box -->
+  <rect x="60" y="538" width="360" height="280" rx="6" fill="none" stroke="#4ab8d4" stroke-width="1" stroke-dasharray="6,3"/>
+  <text x="80" y="558" fill="#4ab8d4" font-size="10" font-weight="500" letter-spacing="0.04em">usePitchDetection · RAF LOOP</text>
+
+  <!-- Pipeline stages -->
+  <rect x="160" y="570" width="170" height="26" rx="3" fill="#1f2f33" stroke="#4ab8d4" stroke-width="0.5"/>
+  <text x="245" y="587" text-anchor="middle" fill="#4ab8d4" font-size="10">Noise Gate −60 dB</text>
+
+  <line x1="245" y1="596" x2="245" y2="608" stroke="#4ab8d4" stroke-width="0.75" marker-end="url(#arrow-teal)"/>
+  <rect x="160" y="610" width="170" height="26" rx="3" fill="#1f2f33" stroke="#4ab8d4" stroke-width="0.5"/>
+  <text x="245" y="627" text-anchor="middle" fill="#4ab8d4" font-size="10">YIN Algorithm</text>
+
+  <line x1="245" y1="636" x2="245" y2="648" stroke="#4ab8d4" stroke-width="0.75" marker-end="url(#arrow-teal)"/>
+  <rect x="160" y="650" width="170" height="26" rx="3" fill="#1f2f33" stroke="#4ab8d4" stroke-width="0.5"/>
+  <text x="245" y="667" text-anchor="middle" fill="#4ab8d4" font-size="10">Range 70–1400 Hz</text>
+
+  <line x1="245" y1="676" x2="245" y2="688" stroke="#4ab8d4" stroke-width="0.75" marker-end="url(#arrow-teal)"/>
+  <rect x="160" y="690" width="170" height="26" rx="3" fill="#1f2f33" stroke="#4ab8d4" stroke-width="0.5"/>
+  <text x="245" y="707" text-anchor="middle" fill="#4ab8d4" font-size="10">Confidence ≥ 0.75</text>
+
+  <line x1="245" y1="716" x2="245" y2="728" stroke="#4ab8d4" stroke-width="0.75" marker-end="url(#arrow-teal)"/>
+  <rect x="160" y="730" width="170" height="26" rx="3" fill="#1f2f33" stroke="#4ab8d4" stroke-width="0.5"/>
+  <text x="245" y="747" text-anchor="middle" fill="#4ab8d4" font-size="10">In-tune ±30 cents</text>
+
+  <line x1="245" y1="756" x2="245" y2="768" stroke="#4ab8d4" stroke-width="0.75" marker-end="url(#arrow-teal)"/>
+  <rect x="160" y="770" width="170" height="26" rx="3" fill="#1f2f33" stroke="#4ab8d4" stroke-width="0.5"/>
+  <text x="245" y="787" text-anchor="middle" fill="#4ab8d4" font-size="10">Median Filter × 5</text>
+
+  <!-- Latency note -->
+  <text x="355" y="780" fill="#666660" font-size="9" font-style="italic">≈320ms</text>
+
+  <!-- Output from pitch pipeline -->
+  <line x1="245" y1="820" x2="245" y2="862" stroke="#4ab8d4" stroke-width="1" marker-end="url(#arrow-teal)"/>
+  <rect x="155" y="830" width="180" height="22" rx="3" fill="#252525" stroke="#4ab8d4" stroke-width="0.5"/>
+  <text x="245" y="845" text-anchor="middle" fill="#4ab8d4" font-size="10" font-weight="500">PitchDetectionNote "G2"</text>
+
+  <!-- ═══ RIGHT BRANCH: SPEECH RECOGNITION ═══ -->
+
+  <!-- SpeechRecognition label -->
+  <text x="700" y="172" text-anchor="middle" fill="#d4a84a" font-size="10" letter-spacing="0.04em">SpeechRecognition API</text>
+  <text x="700" y="184" text-anchor="middle" fill="#666660" font-size="9">ROUTED TO GOOGLE SERVERS</text>
+
+  <!-- SpeechRecognition config -->
+  <rect x="590" y="198" width="220" height="56" rx="4" fill="#252525" stroke="#d4a84a" stroke-width="0.75"/>
+  <text x="700" y="216" text-anchor="middle" fill="#d4a84a" font-size="11" font-weight="500">webkitSpeechRecognition</text>
+  <text x="700" y="232" text-anchor="middle" fill="#666660" font-size="9">continuous: false · interimResults: false</text>
+  <text x="700" y="244" text-anchor="middle" fill="#666660" font-size="9">lang: en-US · autoRestart: true</text>
+
+  <!-- Cloud -->
+  <line x1="700" y1="254" x2="700" y2="290" stroke="#d4a84a" stroke-width="1" marker-end="url(#arrow-amber)"/>
+  <ellipse cx="700" cy="320" rx="90" ry="30" fill="none" stroke="#d4a84a" stroke-width="0.75" stroke-dasharray="4,3"/>
+  <text x="700" y="324" text-anchor="middle" fill="#d4a84a" font-size="10">Google Speech</text>
+  <text x="700" y="338" text-anchor="middle" fill="#666660" font-size="9">network required</text>
+
+  <!-- Arrow from cloud to transcript -->
+  <line x1="700" y1="350" x2="700" y2="390" stroke="#d4a84a" stroke-width="1" marker-end="url(#arrow-amber)"/>
+  <text x="703" y="376" fill="#666660" font-size="9">onresult</text>
+
+  <!-- Raw transcript -->
+  <rect x="600" y="394" width="200" height="34" rx="4" fill="#252525" stroke="#d4a84a" stroke-width="0.75"/>
+  <text x="700" y="415" text-anchor="middle" fill="#d4a84a" font-size="11" font-weight="500">Raw Transcript</text>
+
+  <!-- Examples -->
+  <text x="700" y="448" text-anchor="middle" fill="#aaa" font-size="10" font-family="'Courier New', monospace">"gee sharp"  "4"  "bee flat"</text>
+
+  <!-- Voice vocab pipeline -->
+  <line x1="700" y1="456" x2="700" y2="478" stroke="#d4a84a" stroke-width="1" marker-end="url(#arrow-amber)"/>
+
+  <rect x="560" y="482" width="280" height="280" rx="6" fill="none" stroke="#d4a84a" stroke-width="1" stroke-dasharray="6,3"/>
+  <text x="580" y="502" fill="#d4a84a" font-size="10" font-weight="500" letter-spacing="0.04em">voice-vocabulary.ts · PURE FUNCTIONS</text>
+
+  <!-- Normalize -->
+  <rect x="620" y="514" width="160" height="26" rx="3" fill="#2f2a1f" stroke="#d4a84a" stroke-width="0.5"/>
+  <text x="700" y="531" text-anchor="middle" fill="#d4a84a" font-size="10">.toLowerCase().trim()</text>
+
+  <line x1="700" y1="540" x2="700" y2="556" stroke="#d4a84a" stroke-width="0.75" marker-end="url(#arrow-amber)"/>
+
+  <!-- Challenge type decision -->
+  <polygon points="700,558 760,588 700,618 640,588" fill="#2f2a1f" stroke="#d4a84a" stroke-width="0.75"/>
+  <text x="700" y="591" text-anchor="middle" fill="#d4a84a" font-size="9">challenge</text>
+  <text x="700" y="602" text-anchor="middle" fill="#d4a84a" font-size="9">type?</text>
+
+  <!-- Left branch: fret shown -->
+  <line x1="640" y1="588" x2="600" y2="588" stroke="#d4a84a" stroke-width="0.75"/>
+  <line x1="600" y1="588" x2="600" y2="634" stroke="#d4a84a" stroke-width="0.75" marker-end="url(#arrow-amber)"/>
+  <text x="604" y="620" fill="#666660" font-size="8">fret shown</text>
+
+  <rect x="570" y="638" width="130" height="36" rx="3" fill="#2f2a1f" stroke="#d4a84a" stroke-width="0.5"/>
+  <text x="635" y="654" text-anchor="middle" fill="#d4a84a" font-size="9">parseSpokenNote()</text>
+  <text x="635" y="667" text-anchor="middle" fill="#666660" font-size="8">"gee" → "G"</text>
+
+  <line x1="635" y1="674" x2="635" y2="694" stroke="#d4a84a" stroke-width="0.75" marker-end="url(#arrow-amber)"/>
+
+  <rect x="570" y="698" width="130" height="26" rx="3" fill="#2f2a1f" stroke="#d4a84a" stroke-width="0.5"/>
+  <text x="635" y="715" text-anchor="middle" fill="#666660" font-size="9">getNoteForFret()</text>
+
+  <!-- Right branch: note shown -->
+  <line x1="760" y1="588" x2="800" y2="588" stroke="#d4a84a" stroke-width="0.75"/>
+  <line x1="800" y1="588" x2="800" y2="634" stroke="#d4a84a" stroke-width="0.75" marker-end="url(#arrow-amber)"/>
+  <text x="796" y="620" fill="#666660" font-size="8" text-anchor="end">note shown</text>
+
+  <rect x="720" y="638" width="130" height="36" rx="3" fill="#2f2a1f" stroke="#d4a84a" stroke-width="0.5"/>
+  <text x="785" y="654" text-anchor="middle" fill="#d4a84a" font-size="9">parseSpokenFret()</text>
+  <text x="785" y="667" text-anchor="middle" fill="#666660" font-size="8">"three" → 3</text>
+
+  <line x1="785" y1="674" x2="785" y2="694" stroke="#d4a84a" stroke-width="0.75" marker-end="url(#arrow-amber)"/>
+
+  <rect x="720" y="698" width="130" height="26" rx="3" fill="#2f2a1f" stroke="#d4a84a" stroke-width="0.5"/>
+  <text x="785" y="715" text-anchor="middle" fill="#666660" font-size="9">getFretForNote()</text>
+
+  <!-- Merge -->
+  <line x1="635" y1="724" x2="635" y2="740" stroke="#d4a84a" stroke-width="0.75"/>
+  <line x1="785" y1="724" x2="785" y2="740" stroke="#d4a84a" stroke-width="0.75"/>
+  <line x1="635" y1="740" x2="785" y2="740" stroke="#d4a84a" stroke-width="0.75"/>
+  <line x1="700" y1="740" x2="700" y2="762" stroke="#d4a84a" stroke-width="1" marker-end="url(#arrow-amber)"/>
+
+  <!-- Latency note -->
+  <text x="810" y="756" fill="#666660" font-size="9" font-style="italic">≈500ms–2s</text>
+
+  <!-- Output from speech pipeline -->
+  <rect x="620" y="770" width="160" height="22" rx="3" fill="#252525" stroke="#d4a84a" stroke-width="0.5"/>
+  <text x="700" y="785" text-anchor="middle" fill="#d4a84a" font-size="10" font-weight="500">match: ✓ correct / ✗ / null</text>
+
+  <!-- ═══ NOTEFLASH MERGE ZONE ═══ -->
+
+  <!-- Both arrows converge -->
+  <line x1="245" y1="855" x2="245" y2="900" stroke="#4ab8d4" stroke-width="1"/>
+  <line x1="245" y1="900" x2="420" y2="900" stroke="#4ab8d4" stroke-width="1"/>
+  <line x1="700" y1="800" x2="700" y2="900" stroke="#d4a84a" stroke-width="1"/>
+  <line x1="700" y1="900" x2="540" y2="900" stroke="#d4a84a" stroke-width="1"/>
+
+  <!-- NoteFlash box -->
+  <rect x="370" y="870" width="220" height="240" rx="8" fill="#252525" stroke="#f0f0ec" stroke-width="1.5"/>
+  <text x="480" y="895" text-anchor="middle" fill="#f0f0ec" font-size="12" font-weight="500">NoteFlash.tsx</text>
+
+  <!-- handleNote -->
+  <rect x="390" y="910" width="90" height="22" rx="3" fill="#1f2f33" stroke="#4ab8d4" stroke-width="0.5"/>
+  <text x="435" y="925" text-anchor="middle" fill="#4ab8d4" font-size="9">handleNote</text>
+
+  <!-- handleVoiceResult -->
+  <rect x="490" y="910" width="90" height="22" rx="3" fill="#2f2a1f" stroke="#d4a84a" stroke-width="0.5"/>
+  <text x="535" y="925" text-anchor="middle" fill="#d4a84a" font-size="9">handleVoice</text>
+
+  <!-- Sustain counter -->
+  <text x="435" y="948" text-anchor="middle" fill="#666660" font-size="8">sustain ≥ 2</text>
+  <text x="535" y="948" text-anchor="middle" fill="#666660" font-size="8">instant</text>
+
+  <!-- Race arrow -->
+  <line x1="435" y1="955" x2="480" y2="975" stroke="#4ab8d4" stroke-width="0.75"/>
+  <line x1="535" y1="955" x2="480" y2="975" stroke="#d4a84a" stroke-width="0.75"/>
+
+  <!-- Latch -->
+  <rect x="420" y="978" width="120" height="30" rx="4" fill="#333" stroke="#f0f0ec" stroke-width="0.75"/>
+  <text x="480" y="993" text-anchor="middle" fill="#f0f0ec" font-size="10" font-weight="500">FIRST WINS</text>
+  <text x="480" y="1003" text-anchor="middle" fill="#666660" font-size="8">correctLatchedRef</text>
+
+  <!-- Arrow to animation -->
+  <line x1="480" y1="1008" x2="480" y2="1028" stroke="#f0f0ec" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <!-- Animation -->
+  <rect x="410" y="1032" width="140" height="26" rx="3" fill="#333" stroke="#555" stroke-width="0.5"/>
+  <text x="480" y="1049" text-anchor="middle" fill="#aaa" font-size="10">triggerCorrect · 210ms</text>
+
+  <!-- Arrow to advance -->
+  <line x1="480" y1="1058" x2="480" y2="1078" stroke="#f0f0ec" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <rect x="415" y="1082" width="130" height="26" rx="3" fill="#333" stroke="#555" stroke-width="0.5"/>
+  <text x="480" y="1099" text-anchor="middle" fill="#aaa" font-size="10">advance → next card</text>
+
+  <!-- Legend -->
+  <rect x="60" y="1140" width="840" height="44" rx="6" fill="#1f1f1f" stroke="#555" stroke-width="0.5"/>
+  <line x1="80" y1="1162" x2="120" y2="1162" stroke="#4ab8d4" stroke-width="2"/>
+  <text x="128" y="1166" fill="#aaa" font-size="10">Pitch detection (local, on-device)</text>
+  <line x1="350" y1="1162" x2="390" y2="1162" stroke="#d4a84a" stroke-width="2"/>
+  <text x="398" y="1166" fill="#aaa" font-size="10">Speech recognition (Google servers)</text>
+  <line x1="630" y1="1162" x2="670" y2="1162" stroke="#888" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="678" y="1166" fill="#aaa" font-size="10">Diagnostic blind spot (no visibility)</text>
+</svg>
