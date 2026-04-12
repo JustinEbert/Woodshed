@@ -1,13 +1,19 @@
-// Note Flash exercise — Stories #14 + #27
+// Note Flash exercise — Stories #14 + #27 + #56
 // Exercise shell: takes a challenge pool, shuffles it, renders FlashCard,
 // handles correct/wrong, loops on pool exhaustion.
-// Uses usePitchDetection hook for real guitar input via microphone.
+// Accepts two parallel inputs:
+//   1. Pitch detection — play the note on guitar (#27)
+//   2. Voice recognition — say the answer (#56)
+// Fret challenges expect a spoken note name; note challenges expect a spoken fret number.
 
 import { useRef, useState, useCallback, useEffect } from 'react'
 import FlashCard, { type FlashCardHandle } from '../../components/flashcard/FlashCard'
 import { buildLowEPool, type Challenge } from './pools'
 import { matchNote } from './note-matching'
 import { usePitchDetection, type PitchDetectionNote } from '../../audio/usePitchDetection'
+import { useSpeechRecognition } from '../../audio/useSpeechRecognition'
+import { parseSpokenNote, parseSpokenFret } from '../../audio/voice-vocabulary'
+import { getNoteForFret, getFretForNote } from '../../audio/tuning'
 
 // ─── Shuffle utility ─────────────────────────────────────────────────────────
 
@@ -85,6 +91,54 @@ export default function NoteFlash() {
     }
   }, [])
 
+  // ── Voice input — parallel to pitch detection (Story #56) ────────────
+
+  const handleVoiceResult = useCallback((transcript: string) => {
+    const challenge = currentRef.current
+    if (!challenge) return
+    if (correctLatchedRef.current) return
+
+    const fretNum = Number(challenge.value)
+    const isFretChallenge =
+      Number.isFinite(fretNum) && Number.isInteger(fretNum)
+
+    let correct = false
+
+    if (isFretChallenge) {
+      // Fret shown → user says note name
+      const spokenNote = parseSpokenNote(transcript)
+      if (spokenNote !== null) {
+        const expectedNote = getNoteForFret(challenge.stringIndex, fretNum)
+        correct = spokenNote === expectedNote
+      }
+    } else {
+      // Note name shown → user says fret number
+      const spokenFret = parseSpokenFret(transcript)
+      if (spokenFret !== null) {
+        const expectedFret = getFretForNote(
+          challenge.stringIndex,
+          challenge.value,
+        )
+        correct = spokenFret === expectedFret
+      }
+    }
+
+    if (correct) {
+      // Voice gives one discrete answer — no sustain counter needed
+      correctLatchedRef.current = true
+      sustainCountRef.current = 0
+      cardRef.current?.triggerCorrect()
+    }
+    // Wrong / unrecognized → silent no-op (no penalty)
+  }, [])
+
+  const { start: voiceStart } = useSpeechRecognition({
+    mode: 'exercise',
+    onResult: handleVoiceResult,
+    onError: () => {},  // Silent degradation
+    autoRestart: true,  // Re-listen after each recognition result
+  })
+
   const { listening, permission, start } = usePitchDetection({
     onNote: handleNote,
     minConfidence: MIN_CONFIDENCE,
@@ -92,9 +146,10 @@ export default function NoteFlash() {
     maxCentsOff:   MAX_CENTS_OFF,
   })
 
-  // Start microphone on mount
+  // Start microphone + voice on mount
   useEffect(() => {
     start()
+    voiceStart()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
